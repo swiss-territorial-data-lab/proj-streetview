@@ -1,0 +1,21 @@
+get_stat_images.py:
+  working_directory: .
+  input_folder: data/RCNE/panoramic_images/
+
+prepare_coco_data.py:
+  working_directory: .
+  output_dir: outputs/OD
+  image_dir: data/RCNE/panoramic_images/
+  COCO_files:
+    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+  license:
+    name: unknown
+    url: unknown
+    id: 0
+  categories:
+    id: 1
+    name: manhole
+    supercategory: round plate
+  tile_size: 512
+  ratio_wo_annotations: 0.1
+  seed: 42

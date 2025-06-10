@@ -2,6 +2,7 @@ geopandas
 loguru
 networkx
 opencv-python
+pillow==9.5.0
 pygeohash
 rasterio
 rdp
