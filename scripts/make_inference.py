@@ -13,7 +13,6 @@ import time
 import yaml
 from tqdm import tqdm
 
-import geopandas as gpd
 import pandas as pd
 
 from detectron2.utils.logger import setup_logger
@@ -33,7 +32,7 @@ parent_dir = current_dir[:current_dir.rfind(os.path.sep)]
 sys.path.insert(0, parent_dir)
 
 from utils.detectron2 import detectron2dets_to_features
-from utils.misc import image_metadata_to_affine_transform, format_logger, get_number_of_classes, add_geohash, remove_overlap_poly
+from utils.misc import format_logger, get_number_of_classes
 from utils.constants import DONE_MSG
 
 from loguru import logger
@@ -63,19 +62,16 @@ def main(cfg_file_path):
     
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder'] if 'output_folder' in cfg.keys() else '.'
-    SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder']
+    SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder'] if 'sample_tagged_img_subfolder' in cfg.keys() else False
     LOG_SUBDIR = cfg['log_subfolder']
 
     SCORE_LOWER_THR = cfg['score_lower_threshold'] 
 
     IMG_METADATA_FILE = cfg['image_metadata_json']
-    RDP_SIMPLIFICATION_ENABLED = cfg['rdp_simplification']['enabled']
-    RDP_SIMPLIFICATION_EPSILON = cfg['rdp_simplification']['epsilon']
-    REMOVE_OVERLAP = cfg['remove_det_overlap'] if 'remove_det_overlap' in cfg.keys() else False
 
     os.chdir(WORKING_DIR)
     # let's make the output directories in case they don't exist
-    for directory in [OUTPUT_DIR, SAMPLE_TAGGED_IMG_SUBDIR, LOG_SUBDIR]:
+    for directory in [OUTPUT_DIR, LOG_SUBDIR]:
         os.makedirs(directory, exist_ok=True)
 
     written_files = []
@@ -133,64 +129,36 @@ def main(cfg_file_path):
                 print(f"Exception: {e}, file: {d['file_name']}")
                 sys.exit(1)
                   
-            kk = d["file_name"].split('/')[-1]
-            im_md = img_metadata_dict[kk]
-
-            _crs = f"EPSG:{im_md['extent']['spatialReference']['latestWkid']}"
-
-            # let's make sure all the images share the same CRS
-            if crs is not None: # iterations other than the 1st
-                assert crs == _crs, "Mismatching CRS"
-            crs = _crs
-
-            transform = image_metadata_to_affine_transform(im_md)
-            if 'year' in im_md.keys():
-                year = im_md['year']
-                this_image_feats = detectron2dets_to_features(outputs, d['file_name'], transform, RDP_SIMPLIFICATION_ENABLED, RDP_SIMPLIFICATION_EPSILON, year=year)
-            else:
-                this_image_feats = detectron2dets_to_features(outputs, d['file_name'], transform, RDP_SIMPLIFICATION_ENABLED, RDP_SIMPLIFICATION_EPSILON)
+            this_image_feats = detectron2dets_to_features(outputs, d['file_name'])
 
             all_feats += this_image_feats
 
-        gdf = gpd.GeoDataFrame.from_features(all_feats, crs=crs)
-        gdf['dataset'] = dataset
+        df = pd.DataFrame.from_records(all_feats)
+        df['dataset'] = dataset
 
-        # Filter detection to avoid overlapping detection polygons due to multi-class detection 
-        if REMOVE_OVERLAP:
-            id_to_keep = []
-            gdf = add_geohash(gdf)
-            if 'year_det' in gdf.keys():
-                for year in gdf.year_det.unique():
-                    gdf_temp = gdf.copy()
-                    gdf_temp = gdf_temp[gdf_temp['year_det']==year] 
-                    gdf_temp['geom'] = gdf_temp.geometry
-                    ids = remove_overlap_poly(gdf_temp, id_to_keep)
-                    id_to_keep.append(ids)
-            else:
-                id_to_keep = remove_overlap_poly(gdf_temp, id_to_keep)  
-            # Keep only polygons with the highest detection score
-            gdf = gdf[gdf.geohash.isin(id_to_keep)]
-        gdf.to_file(detections_filename, driver='GPKG')
+        df.to_file(detections_filename, driver='GPKG')
         written_files.append(os.path.join(WORKING_DIR, detections_filename))
             
         logger.success(DONE_MSG)
-        
-        logger.info("Let's tag some sample images...")
-        for d in DatasetCatalog.get(dataset)[0:min(len(DatasetCatalog.get(dataset)), 10)]:
-            output_filename = f'{dataset}_det_{d["file_name"].split("/")[-1]}'
-            output_filename = output_filename.replace('tif', 'png')
-            im = cv2.imread(d["file_name"])
-            outputs = predictor(im)
-            v = Visualizer(im[:, :, ::-1], # [:, :, ::-1] is for RGB -> BGR conversion, cf. https://stackoverflow.com/questions/14556545/why-opencv-using-bgr-colour-space-instead-of-rgb
-                metadata=MetadataCatalog.get(dataset), 
-                scale=1.0, 
-                instance_mode=ColorMode.IMAGE_BW # remove the colors of unsegmented pixels
-            )   
-            v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-            filepath = os.path.join(SAMPLE_TAGGED_IMG_SUBDIR, output_filename)
-            cv2.imwrite(filepath, v.get_image()[:, :, ::-1])
-            written_files.append(os.path.join(WORKING_DIR, filepath))
-        logger.success(DONE_MSG)
+
+        if SAMPLE_TAGGED_IMG_SUBDIR:
+            os.makedirs(SAMPLE_TAGGED_IMG_SUBDIR, exist_ok=True)
+            logger.info("Let's tag some sample images...")
+            for d in DatasetCatalog.get(dataset)[0:min(len(DatasetCatalog.get(dataset)), 10)]:
+                output_filename = f'{dataset}_det_{d["file_name"].split("/")[-1]}'
+                output_filename = output_filename.replace('tif', 'png')
+                im = cv2.imread(d["file_name"])
+                outputs = predictor(im)
+                v = Visualizer(im[:, :, ::-1], # RGB -> BGR conversion for open-cv
+                    metadata=MetadataCatalog.get(dataset), 
+                    scale=1.0, 
+                    instance_mode=ColorMode.IMAGE_BW # remove the colors of unsegmented pixels
+                )   
+                v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+                filepath = os.path.join(SAMPLE_TAGGED_IMG_SUBDIR, output_filename)
+                cv2.imwrite(filepath, v.get_image()[:, :, ::-1])
+                written_files.append(os.path.join(WORKING_DIR, filepath))
+            logger.success(DONE_MSG)
 
         
     # ------ wrap-up
