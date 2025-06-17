@@ -8,14 +8,23 @@ prepare_coco_data.py:
   image_dir: data/RCNE/panoramic_images/
   COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
-  license:
-    name: unknown
-    url: unknown
-    id: 0
-  categories:
-    id: 1
-    name: manhole
-    supercategory: round plate
+  license: [{id: 1,name: unknown, url: unknown}]
+  categories: [{id: 1, name: manhole, supercategory: round plate}]
   tile_size: 512
-  ratio_wo_annotations: 0.1
+  ratio_wo_annotations: 0.05
   seed: 42
+  overwrite_images: False
+
+train_model.py:
+  debug_mode: False
+  working_directory: outputs/OD
+  log_subfolder: logs
+  sample_tagged_img_subfolder: sample_training_images
+  COCO_files:
+    trn: COCO_trn.json
+    val: COCO_val.json
+    tst: COCO_tst.json
+  detectron2_config_file: ../../config/detectron2_config.yaml
+  model_weights:
+    model_zoo_checkpoint_url: COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_1x.yaml
+  

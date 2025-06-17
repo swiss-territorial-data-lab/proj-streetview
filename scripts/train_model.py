@@ -70,12 +70,10 @@ def main(cfg_file_path):
     COCO_TST_FILE = COCO_FILES_DICT['tst']
         
     DETECTRON2_CFG_FILE = cfg['detectron2_config_file']
-    
 
     WORKING_DIR = cfg['working_directory']
     SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder']
     LOG_SUBDIR = cfg['log_subfolder']
-        
     
     os.chdir(WORKING_DIR)
     # Erase folder if exists and make them anew
