@@ -1,13 +1,13 @@
 import cv2
 import json
 import os
-import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
 from tqdm import tqdm
 from yaml import load, FullLoader
 
+import numpy as np
 import pandas as pd
 from math import ceil
 
@@ -17,15 +17,30 @@ from utils.misc import format_logger
 
 logger = format_logger(logger)
 
+def check_bbox_plausibility(new_origin, length, tile_size=512):
+    if new_origin < 0:
+        length = length + new_origin
+        new_origin = 0
+        if length > tile_size:
+            length = tile_size
+    elif new_origin + length > tile_size:
+        length = tile_size - new_origin
 
-def create_coco_dict(images, annotations, categories, license):
-    coco_dict = {}
-    coco_dict["images"] = json.loads(images.to_json(orient="records"))
-    coco_dict["annotations"] = json.loads(annotations.to_json(orient="records"))
-    coco_dict["categories"] = categories.copy()
-    coco_dict["licenses"] = license.copy()
+    assert all(value <= tile_size and value >= 0 for value in [new_origin, length]), "Annotation outside tile"
 
-    return coco_dict
+    return new_origin, length
+
+
+def compute_polygon_area(x, y):
+    # cf. https://stackoverflow.com/questions/24467972/calculate-area-of-polygon-given-x-y-coordinates
+    # Implementation of the shoelace formula in numpy
+
+    return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+
+
+def get_new_coordinate(initial_coor, tile_min, tile_size=512):
+    return max(min(initial_coor-tile_min, tile_size), 0)
+
 
 def remove_discarded_tiles(all_tiles_df, selectd_tiles, output_dir):
     for tile in all_tiles_df.file_name.unique():
@@ -54,16 +69,16 @@ def main(cfg_file_path):
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     SEED = cfg['seed']
     OVERWRITE_IMAGES = cfg['overwrite_images']
-    DEBUG = True
+    DEBUG = False
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     OUTPUT_DIR_IMAGES = "images"
     os.makedirs(os.path.join(OUTPUT_DIR, OUTPUT_DIR_IMAGES), exist_ok=True)
+    written_files = []
 
     # Read full COCO dataset
     images_and_annotations_df = pd.DataFrame()
-    annotations_df = pd.DataFrame()
     for dataset_key, coco_file in COCO_FILES_DICT.items():
         register_coco_instances(dataset_key, {}, coco_file, "")
 
@@ -77,7 +92,7 @@ def main(cfg_file_path):
     # Iterate through images and clip them into tiles
     overlap_x = 96   # ok values: 96 px (19 tiles) or 200 px (25 tiles)
     overlap_y = 176
-    padding = 736
+    padding_y = 736
     image_id = 0
     annotation_id = 0
     tiles_df = pd.DataFrame()
@@ -85,24 +100,25 @@ def main(cfg_file_path):
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
     for image in tqdm(images_and_annotations_df.itertuples(), desc="Clipping images and annotations into tiles", total=len(images_and_annotations_df)):
+
         img = cv2.imread(image.file_name)
         if img is None:
             logger.error(f"Image {image.file_name} not found")
             continue
+
+        # Clip image
         h, w = img.shape[:2]
         tiles = []
-        # Clip image
-        for i in range(padding, h - padding, TILE_SIZE - overlap_y):
+        for i in range(padding_y, h - padding_y, TILE_SIZE - overlap_y):
             for j in range(0, w - overlap_x, TILE_SIZE - overlap_x):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                 tile = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
                 assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, "Tile shape not 512 x 512 px"
                 tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename})
-
-                if os.path.exists(os.path.join(OUTPUT_DIR, new_filename)) and not OVERWRITE_IMAGES:
-                    continue
-                cv2.imwrite(os.path.join(OUTPUT_DIR, new_filename), tile)
                 image_id += 1
+
+                if not os.path.exists(os.path.join(OUTPUT_DIR, new_filename)) or OVERWRITE_IMAGES:
+                    cv2.imwrite(os.path.join(OUTPUT_DIR, new_filename), tile)
 
         all_tiles_df = pd.DataFrame(tiles)
 
@@ -120,32 +136,37 @@ def main(cfg_file_path):
                 ann_origin_x, ann_origin_y, ann_width, ann_height = ann["bbox"]
                 if ann_origin_x >= tile_max_x or ann_origin_x + ann_width <= tile_min_x or ann_origin_y >= tile_max_y or ann_origin_y + ann_height <= tile_min_y:
                     continue
-                # else, adapt coordinates and clip if necessary
-                x1 = max(ann_origin_x - tile_min_x, 0)
-                y1 = max(ann_origin_y - tile_min_y, 0)
-                x2 = ann_width if x1 + ann_width <= TILE_SIZE else TILE_SIZE - x1
-                y2 = ann_height if y1 + ann_height <= TILE_SIZE else TILE_SIZE - y1
-                assert (all(value <= TILE_SIZE and value >= 0 for value in [x1, y1, x2, y2])), "Annotation outside tile"
-                coords = ann["segmentation"][0].copy()
-                new_coords_x = []
-                new_coords_y = []
-                for i in range(0, len(coords), 2):  # Could be improved by cutting the mask instead of flattening it
-                    new_x = max(min(coords[i]-tile_min_x, TILE_SIZE), 0)
-                    new_y = max(min(coords[i+1]-tile_min_y, TILE_SIZE), 0)
+
+                # else, scale coordinates and clip if necessary
+                # bbox
+                x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
+                y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)                
+
+                # segmentation
+                old_coords = ann["segmentation"][0]
+                coords = [get_new_coordinate(old_coords[0], tile_min_x), get_new_coordinate(old_coords[1], tile_min_y)] # set first coordinates
+                new_coords_x = [coords[0]]
+                new_coords_y = [coords[1]]
+                for i in range(2, len(old_coords), 2):
+                    new_x = get_new_coordinate(old_coords[i], tile_min_x)
+                    new_y = get_new_coordinate(old_coords[i+1], tile_min_y)
+                    if new_x == new_coords_x[-1] and new_y == new_coords_y[-1]:
+                        continue
                     new_coords_x.append(new_x)
                     new_coords_y.append(new_y)
-                    coords[i] = new_x
-                    coords[i+1] = new_y
-                assert (all(value <= TILE_SIZE and value >= 0 for value in coords)), "Mask outside tile"
+                    coords.extend([new_x, new_y])
+                assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
                 if all(value <=10 and value >= 500 for value in new_coords_x) or all(value <=10 and value >= 500 for value in new_coords_y):
                     logger.info("annotation on tile border")
                     continue
+
                 annotations.append(dict(
                     id=annotation_id,
                     image_id=tile["id"],
                     category_id=1,  # Currently, single class
                     iscrowd=ann["iscrowd"],
-                    bbox=[x1, y1, x2, y2],
+                    bbox=[x1, y1, new_width, new_height],
+                    area=compute_polygon_area(np.array(new_coords_x), np.array(new_coords_y)),
                     segmentation=[coords]
                 ))
                 annotation_id += 1
@@ -160,31 +181,35 @@ def main(cfg_file_path):
             
         else: 
             tile_annotations_df = pd.DataFrame(annotations)
-            clipped_annotations_df = pd.concat((clipped_annotations_df, tile_annotations_df), ignore_index=True)
+            clipped_annotations_df = pd.concat([clipped_annotations_df, tile_annotations_df], ignore_index=True)
 
             # Separate tiles w/ and w/o annotations
-            tile_ids_w_annotations = tile_annotations_df["image_id"].unique()
-            tiles_with_ann_df = all_tiles_df[all_tiles_df["id"].isin(tile_ids_w_annotations)]
+            condition_annotations = all_tiles_df["id"].isin(tile_annotations_df["image_id"].unique())
+            tiles_with_ann_df = all_tiles_df[condition_annotations]
+            tot_tiles_with_ann += tiles_with_ann_df.shape[0]
+
             if RATIO_WO_ANNOTATIONS != 0:
-                tiles_without_ann_df = all_tiles_df[~all_tiles_df["id"].isin(tile_ids_w_annotations)]
+                nbr_tiles_without_ann = ceil(len(tiles_with_ann_df) * RATIO_WO_ANNOTATIONS/(1 - RATIO_WO_ANNOTATIONS))
+            
+                tiles_without_ann_df = all_tiles_df[~condition_annotations].sample(
+                    n=min(nbr_tiles_without_ann, len(all_tiles_df[~condition_annotations])), random_state=SEED
+                )
+                tot_tiles_without_ann += tiles_without_ann_df.shape[0]
 
-                tot_tiles_with_ann += tiles_with_ann_df.shape[0]
-                nbr_tiles_without_ann = min(ceil(len(tiles_with_ann_df) * RATIO_WO_ANNOTATIONS/(1 - RATIO_WO_ANNOTATIONS)), len(tiles_without_ann_df))
-                tot_tiles_without_ann += nbr_tiles_without_ann
+                tiles_df = pd.concat((tiles_df, tiles_with_ann_df, tiles_without_ann_df), ignore_index=True)
 
-                tiles_df = pd.concat((tiles_df, tiles_with_ann_df, tiles_without_ann_df.sample(n=nbr_tiles_without_ann, random_state=SEED)), ignore_index=True)
-
-                remove_discarded_tiles(tiles_without_ann_df, tiles_without_ann_df.sample(n=nbr_tiles_without_ann, random_state=SEED).file_name.unique(), OUTPUT_DIR)
+                remove_discarded_tiles(
+                    all_tiles_df[~condition_annotations], tiles_without_ann_df.file_name.unique(), OUTPUT_DIR
+                )
 
             else:
                 tiles_df = pd.concat((tiles_df, tiles_with_ann_df), ignore_index=True)
-                tot_tiles_with_ann += all_tiles_df.shape[0]
 
                 remove_discarded_tiles(all_tiles_df, tiles_with_ann_df.file_name.unique(), OUTPUT_DIR)
+
+            del tile_annotations_df, tiles_with_ann_df, tiles_without_ann_df
                 
-
-
-    del annotations_df, all_tiles_df, tiles_with_ann_df, tiles_without_ann_df
+    del all_tiles_df
     logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and kept {tot_tiles_without_ann} tiles without annotations.")
 
     # Split tiles into train, val and test sets based on ratio 70% / 15% / 15%
@@ -201,12 +226,24 @@ def main(cfg_file_path):
         logger.info(f"Found {len(dataset_annotations)} annotations in the {dataset} dataset.")
 
         # Create COCO dicts
-        COCO_dict = create_coco_dict(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES, LICENSE)
+        coco_dict = {}
+        coco_dict["images"] = json.loads(dataset_tiles_dict[dataset].to_json(orient="records"))
+        coco_dict["annotations"] = json.loads(dataset_annotations.to_json(orient="records"))
+        coco_dict["categories"] = CATEGORIES.copy()
+        coco_dict["licenses"] = LICENSE.copy()
 
         # Create COCO files
         logger.info(f"Creating COCO file for {dataset} set.")
         with open(os.path.join(OUTPUT_DIR, f"COCO_{dataset}.json"), "w") as fp:
-            json.dump(COCO_dict, fp, indent=4)
+            json.dump(coco_dict, fp, indent=4)
+        written_files.append(os.path.join(OUTPUT_DIR, f"COCO_{dataset}.json"))
+
+    logger.success("Done! The following files have been created:")
+    for file in written_files:
+        logger.success(file)
+    logger.success(f"In addition, some tiles were written in {os.path.join(OUTPUT_DIR, OUTPUT_DIR_IMAGES)}.")
+
+    logger.info(f"Done in {round(time() - tic, 2)} seconds.")
 
         
 if __name__ == "__main__":
