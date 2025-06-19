@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import logging
 
+import cv2
 import datetime
 
 from detectron2.engine.hooks import HookBase
@@ -15,6 +16,7 @@ from detectron2.data import build_detection_test_loader, DatasetMapper
 from detectron2.evaluation import COCOEvaluator
 from detectron2.utils import comm
 from detectron2.utils.logger import log_every_n_seconds
+# from pycocotools.mask import encode
 
 # cf. https://medium.com/@apofeniaco/training-on-detectron2-with-a-validation-set-and-plot-loss-on-it-to-avoid-overfitting-6449418fbf4e
 # cf. https://towardsdatascience.com/face-detection-on-custom-dataset-with-detectron2-and-pytorch-using-python-23c17e99e162
@@ -147,18 +149,30 @@ def detectron2dets_to_features(dets, im_path):
   for idx in range(len(tmp['scores'])):
     
     instance = {}
-    instance['score'] = tmp['scores'][idx]
-    instance['pred_class'] = tmp['pred_classes'][idx]
-    # if pred_masks does not exist, pred_boxes should (it depends on Detectron2's MASK_ON config param)
-    instance['geometry'] = tmp['pred_masks'][idx] if 'pred_masks' in tmp.keys() else tmp['pred_boxes'][idx]
+    instance['score'] = float(round(tmp['scores'][idx], 3))
+    instance['pred_class'] = int(tmp['pred_classes'][idx])
+
+    # Determine bbox
+    bbox = tmp['pred_boxes'][idx]
+    instance['bbox'] = [float(bbox_elem) for bbox_elem in [bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]]]
+
+    # Determine geometry
+    if np.all(tmp['pred_masks'][idx]==False):
+        print(f"Found an empty mask with score {instance['score']}...")
+        continue
+    # test = encode(np.asfortranarray(tmp['pred_masks'][idx], dtype='uint8'))
+    contour_coords = cv2.findContours(tmp['pred_masks'][idx].astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    instance['segmentation'] = []
+    for contour_nbr in range(len(contour_coords[0])):
+        instance['segmentation'].append([float(coord) for coord in contour_coords[0][contour_nbr].flatten().tolist()])
+
+    instance['area'] = float(tmp['pred_masks'][idx].sum())
 
     _feats = [
-      {
-          'type': 'Feature', 
-          'properties': {
-              'score': instance['score'], 'det_class': instance['pred_class'], 'image': os.path.basename(im_path), 'geometry': instance['geometry']
-          },
-      } 
+        {
+            'score': instance['score'], 'det_class': instance['pred_class'], 'file_name': os.path.basename(im_path), 
+            'bbox': instance['bbox'], 'segmentation': instance['segmentation'], 'area': instance['area']
+        },
     ]
 
     feats += _feats

@@ -8,12 +8,11 @@ import os
 import sys
 import argparse
 import cv2
-import json
 import time
 import yaml
 from tqdm import tqdm
 
-import pandas as pd
+from json import dump
 
 from detectron2.utils.logger import setup_logger
 setup_logger()
@@ -63,25 +62,13 @@ def main(cfg_file_path):
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder'] if 'output_folder' in cfg.keys() else '.'
     SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder'] if 'sample_tagged_img_subfolder' in cfg.keys() else False
-    LOG_SUBDIR = cfg['log_subfolder']
 
     SCORE_LOWER_THR = cfg['score_lower_threshold'] 
 
-    IMG_METADATA_FILE = cfg['image_metadata_json']
-
     os.chdir(WORKING_DIR)
-    # let's make the output directories in case they don't exist
-    for directory in [OUTPUT_DIR, LOG_SUBDIR]:
-        os.makedirs(directory, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     written_files = []
-
-    # ------ Loading image metadata
-    with open(IMG_METADATA_FILE, 'r') as fp:
-        tmp = json.load(fp)
-
-    # let's extract filenames (w/o path)
-    img_metadata_dict = {os.path.split(k)[-1]: v for (k, v) in tmp.items()}
 
     # ---- register datasets
     for dataset_key, coco_file in COCO_FILES_DICT.items():
@@ -92,7 +79,6 @@ def main(cfg_file_path):
     # cf. https://detectron2.readthedocs.io/modules/config.html#config-references
     cfg = get_cfg()
     cfg.merge_from_file(DETECTRON2_CFG_FILE)
-    cfg.OUTPUT_DIR = LOG_SUBDIR
 
     cfg.MODEL.WEIGHTS = MODEL_PTH_FILE
     logger.info(f'Using model {MODEL_PTH_FILE}.')
@@ -110,15 +96,13 @@ def main(cfg_file_path):
 
     predictor = DefaultPredictor(cfg)
     
-    # ---- make detections   
+    # ---- make detections  
+    det_id = 0 
     for dataset in COCO_FILES_DICT.keys():
 
         all_feats = []
-        crs = None
         
         logger.info(f"Making detections over the entire {dataset} dataset...")
-        
-        detections_filename = os.path.join(OUTPUT_DIR, f'{dataset}_detections_at_{threshold_str}_threshold.gpkg')
     
         for d in tqdm(DatasetCatalog.get(dataset)):
             
@@ -133,10 +117,15 @@ def main(cfg_file_path):
 
             all_feats += this_image_feats
 
-        df = pd.DataFrame.from_records(all_feats)
-        df['dataset'] = dataset
+        # Save to json
+        for feat in all_feats:
+            feat['dataset'] = dataset
+            feat['det_id'] = det_id
+            det_id += 1
 
-        df.to_file(detections_filename, driver='GPKG')
+        detections_filename = os.path.join(OUTPUT_DIR, f'{dataset}_detections_at_{threshold_str}_threshold.json')
+        with open(detections_filename, 'w') as fp:
+            dump(all_feats, fp, indent=4)
         written_files.append(os.path.join(WORKING_DIR, detections_filename))
             
         logger.success(DONE_MSG)

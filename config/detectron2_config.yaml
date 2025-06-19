@@ -266,7 +266,7 @@ MODEL:
 OUTPUT_DIR: logs
 SEED: 42
 SOLVER:
-  BASE_LR: 0.005
+  BASE_LR: 0.01
   BIAS_LR_FACTOR: 1.0
   CHECKPOINT_PERIOD: 1000
   CLIP_GRADIENTS:
@@ -275,17 +275,32 @@ SOLVER:
     ENABLED: false
     NORM_TYPE: 2.0
   GAMMA: 0.8
-  IMS_PER_BATCH: 2
+  IMS_PER_BATCH: 8
   LR_SCHEDULER_NAME: WarmupMultiStepLR
-  MAX_ITER: 3000
+  MAX_ITER: 7000
   MOMENTUM: 0.9
   NESTEROV: false
   STEPS:
-  -  500
+  STEPS:
   - 1000
-  - 1500
   - 2000
-  - 2500
+  - 3000
+  - 3500
+  - 4000
+  - 4500
+  - 5000
+  - 5500
+  - 6000
+  - 6500
+  # - 7000
+  # - 7500
+  # - 8000
+  # - 8500
+  # - 9000
+  # - 9500
+  # - 10000
+  # - 10500
+  # - 11000
   WARMUP_FACTOR: 0.001
   WARMUP_ITERS: 200
   WARMUP_METHOD: linear
