@@ -2,6 +2,8 @@ import sys
 import json
 
 from loguru import logger
+from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+from shapely.validation import explain_validity, make_valid
 
 
 def format_logger(logger):
@@ -57,3 +59,36 @@ def get_number_of_classes(coco_files_dict):
     logger.info(f"Working with {num_classes} class{'es' if num_classes > 1 else ''}.")
 
     return num_classes
+
+
+def segmentation_to_polygon(segm):
+    # transform segmentation coordinates to a polygon or a multipolygon
+    if len(segm)==1:
+        if len(segm[0])<5:
+            return None
+        x = segm[0][0::2]
+        y = segm[0][1::2]
+        poly = Polygon(zip(x, y))
+    else:
+        parts = []
+        for coord_list in segm:
+            if len(coord_list)<5:
+                    continue
+            x = coord_list[0::2]
+            y = coord_list[1::2]
+            parts.append(Polygon(zip(x, y)))
+        if len(parts)==0:
+            return None
+        poly = MultiPolygon(parts) if len(parts)>1 else parts[0]
+
+    if not poly.is_valid and 'Self-intersection' in explain_validity(poly):
+        valid_poly = make_valid(poly)
+        if isinstance(valid_poly, GeometryCollection):
+            poly = MultiPolygon([geom for geom in valid_poly.geoms if isinstance(geom, Polygon)])
+        else:
+            poly = valid_poly
+
+    if not poly.is_valid:
+        logger.warning(f"Polygon is not valid: {poly}")
+
+    return poly

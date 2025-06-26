@@ -3,6 +3,7 @@ loguru
 numpy <=1.23.5
 opencv-python
 pillow==9.5.0
+plotly
 protobuf==4.25
 pygeohash
 scikit-learn

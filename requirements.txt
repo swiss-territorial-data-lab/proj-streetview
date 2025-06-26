@@ -93,6 +93,8 @@ matplotlib==3.7.5
     #   pycocotools
 mypy-extensions==1.1.0
     # via black
+narwhals==1.42.1
+    # via plotly
 numpy==1.23.5
     # via
     #   -r requirements.in
@@ -120,6 +122,7 @@ packaging==25.0
     #   geopandas
     #   hydra-core
     #   matplotlib
+    #   plotly
 pandas==2.0.3
     # via geopandas
 pathspec==0.12.1
@@ -131,6 +134,8 @@ pillow==9.5.0
     #   fvcore
     #   matplotlib
     #   torchvision
+plotly==6.1.2
+    # via -r requirements.in
 portalocker==3.0.0
     # via iopath
 protobuf==4.25.0
