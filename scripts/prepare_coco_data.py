@@ -7,13 +7,12 @@ from time import time
 from tqdm import tqdm
 from yaml import load, FullLoader
 
-import numpy as np
 import pandas as pd
 from math import ceil
 
 from detectron2.data.datasets import load_coco_json, register_coco_instances
 
-from utils.misc import format_logger
+from utils.misc import format_logger, segmentation_to_polygon
 
 logger = format_logger(logger)
 
@@ -31,11 +30,10 @@ def check_bbox_plausibility(new_origin, length, tile_size=512):
     return new_origin, length
 
 
-def compute_polygon_area(x, y):
-    # cf. https://stackoverflow.com/questions/24467972/calculate-area-of-polygon-given-x-y-coordinates
-    # Implementation of the shoelace formula in numpy
+def compute_polygon_area(segm):
+    poly = segmentation_to_polygon(segm)
 
-    return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+    return poly.area
 
 
 def get_new_coordinate(initial_coor, tile_min, tile_size=512):
@@ -90,8 +88,8 @@ def main(cfg_file_path):
         images_and_annotations_df = images_and_annotations_df.head(100)
 
     # Iterate through images and clip them into tiles
-    overlap_x = 96   # ok values: 96 px (19 tiles) or 200 px (25 tiles)
-    overlap_y = 176
+    overlap_x = 224
+    overlap_y = 224
     padding_y = 736
     image_id = 0
     annotation_id = 0
@@ -145,19 +143,16 @@ def main(cfg_file_path):
                 # segmentation
                 old_coords = ann["segmentation"][0]
                 coords = [get_new_coordinate(old_coords[0], tile_min_x), get_new_coordinate(old_coords[1], tile_min_y)] # set first coordinates
-                new_coords_x = [coords[0]]
-                new_coords_y = [coords[1]]
+                new_coords_tuples = []
                 for i in range(2, len(old_coords), 2):
                     new_x = get_new_coordinate(old_coords[i], tile_min_x)
                     new_y = get_new_coordinate(old_coords[i+1], tile_min_y)
-                    if new_x == new_coords_x[-1] and new_y == new_coords_y[-1]:
-                        continue
-                    new_coords_x.append(new_x)
-                    new_coords_y.append(new_y)
+                    if new_x in [0, TILE_SIZE] and coords[-2] == new_x or new_y in [0, TILE_SIZE] and coords[-1] == new_y or (new_x, new_y) in new_coords_tuples:
+                        continue 
+                    new_coords_tuples.append((new_x, new_y))
                     coords.extend([new_x, new_y])
                 assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
-                if all(value <=10 and value >= 500 for value in new_coords_x) or all(value <=10 and value >= 500 for value in new_coords_y):
-                    logger.info("annotation on tile border")
+                if all(value[0] <=10 or value[0] >= 500 for value in new_coords_tuples) or all(value[1] <=10 or value[1] >= 500 for value in new_coords_tuples):
                     continue
 
                 annotations.append(dict(
@@ -166,7 +161,7 @@ def main(cfg_file_path):
                     category_id=1,  # Currently, single class
                     iscrowd=ann["iscrowd"],
                     bbox=[x1, y1, new_width, new_height],
-                    area=compute_polygon_area(np.array(new_coords_x), np.array(new_coords_y)),
+                    area=compute_polygon_area([coords]),
                     segmentation=[coords]
                 ))
                 annotation_id += 1
@@ -180,7 +175,10 @@ def main(cfg_file_path):
                 remove_discarded_tiles(all_tiles_df, all_tiles_df.sample(n=2, random_state=SEED).file_name.unique(), OUTPUT_DIR)
             
         else: 
-            tile_annotations_df = pd.DataFrame(annotations)
+            tile_annotations_df = pd.DataFrame(
+                annotations,
+                columns=['image_id'] if len(annotations) == 0 else annotations[0].keys()
+            )
             clipped_annotations_df = pd.concat([clipped_annotations_df, tile_annotations_df], ignore_index=True)
 
             # Separate tiles w/ and w/o annotations
@@ -207,10 +205,15 @@ def main(cfg_file_path):
 
                 remove_discarded_tiles(all_tiles_df, tiles_with_ann_df.file_name.unique(), OUTPUT_DIR)
 
-            del tile_annotations_df, tiles_with_ann_df, tiles_without_ann_df
+            del tile_annotations_df
                 
     del all_tiles_df
     logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and kept {tot_tiles_without_ann} tiles without annotations.")
+
+    duplicates = clipped_annotations_df.drop(columns='id').astype({'bbox': str, 'segmentation': str}, copy=True).duplicated()
+    if any(duplicates):
+        logger.warning(f"Found {duplicates.sum()} duplicated annotations with different ids. Removing them...")
+        clipped_annotations_df = clipped_annotations_df[~duplicates].reset_index(drop=True)
 
     # Split tiles into train, val and test sets based on ratio 70% / 15% / 15%
     trn_tiles = tiles_df.sample(frac=0.7, random_state=SEED)
