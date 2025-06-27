@@ -20,63 +20,63 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
         - geodataframe: false negative labels;
         """
 
-    _dets_df = dets_df.reset_index(drop=True)
-    _labels_df = labels_df.reset_index(drop=True)
+    _dets_gdf = dets_df.reset_index(drop=True)
+    _labels_gdf = labels_df.reset_index(drop=True)
 
     columns_list = ['area', 'geometry', 'dataset', 'label_id', 'label_class']
-    fp_df = pd.DataFrame(columns=_dets_df.columns)
+    fp_df = pd.DataFrame(columns=_dets_gdf.columns)
     tp_df = pd.DataFrame(columns=columns_list + ['det_id', 'det_class', 'score', 'IOU'])
     fn_df = pd.DataFrame(columns=columns_list)
     tagged_df_dict = {'tp_df': tp_df, 'fp_df': fp_df, 'fn_df': fn_df}
        
-    if len(_labels_df) == 0:
-        tagged_df_dict['FP'] = _dets_df
+    if len(_labels_gdf) == 0:
+        tagged_df_dict['FP'] = _dets_gdf
         return tagged_df_dict
     
     # we add a id column to the labels dataset, which should not exist in detections too;
     # this allows us to distinguish matching from non-matching detections
-    _labels_df.rename(columns={'id': 'label_id'}, inplace=True)
-    _dets_df['det_id'] = _dets_df.index
+    _labels_gdf.rename(columns={'id': 'label_id'}, inplace=True)
+    _dets_gdf['det_id'] = _dets_gdf.index
     # We need to keep both geometries after sjoin to check the best intersection over union
-    _labels_df['label_geom'] = _labels_df.geometry
+    _labels_gdf['label_geom'] = _labels_gdf.geometry
 
     # TRUE POSITIVES
     left_join = pd.DataFrame()
     if dataset == 'trn':
-        for image in _dets_df.image_id.unique():
+        for image in _dets_gdf.image_id.unique():
             left_join = pd.concat([
                 left_join, sjoin(
-                    _dets_df[_dets_df.image_id == image], 
-                    _labels_df[_labels_df.image_id == image], 
+                    _dets_gdf[_dets_gdf.image_id == image], 
+                    _labels_gdf[_labels_gdf.image_id == image], 
                     how='left', predicate='intersects', lsuffix='dets', rsuffix='labels'
                 )
             ], ignore_index=True)
         # Test that something is detected
-        candidates_tp_df = left_join[left_join.label_id.notnull()].copy()
+        candidates_tp_gdf = left_join[left_join.label_id.notnull()].copy()
     else:
-        left_join = sjoin(_dets_df, _labels_df, how='left', predicate='intersects', lsuffix='dets', rsuffix='labels')
-        candidates_tp_df = left_join[left_join.image_id_labels == left_join.image_id_dets]  # image_id_labels not null iff label_id not null
+        left_join = sjoin(_dets_gdf, _labels_gdf, how='left', predicate='intersects', lsuffix='dets', rsuffix='labels')
+        candidates_tp_gdf = left_join[left_join.image_id_labels == left_join.image_id_dets]  # image_id_labels not null iff label_id not null
 
     # IoU computation between labels and detections
-    geom1 = candidates_tp_df['geometry'].to_numpy().tolist()
-    geom2 = candidates_tp_df['label_geom'].to_numpy().tolist()    
-    candidates_tp_df.loc[:, ['IOU']] = [intersection_over_union(i, ii) for (i, ii) in zip(geom1, geom2)]
+    geom1 = candidates_tp_gdf['geometry'].to_numpy().tolist()
+    geom2 = candidates_tp_gdf['label_geom'].to_numpy().tolist()    
+    candidates_tp_gdf.loc[:, ['IOU']] = [intersection_over_union(i, ii) for (i, ii) in zip(geom1, geom2)]
 
     # Filter detections based on IoU value
-    best_matches_df = candidates_tp_df.groupby(['det_id'], group_keys=False).apply(lambda g:g[g.IOU==g.IOU.max()])
-    best_matches_df.drop_duplicates(subset=['det_id'], inplace=True) # Case to IoU are equal for a detection
+    best_matches_gdf = candidates_tp_gdf.groupby(['det_id'], group_keys=False).apply(lambda g:g[g.IOU==g.IOU.max()])
+    best_matches_gdf.drop_duplicates(subset=['det_id'], inplace=True) # Case to IoU are equal for a detection
 
     # Detection, resp labels, with IOU lower than threshold value are considered as FP, resp FN, and saved as such
-    actual_matches_df = best_matches_df[best_matches_df['IOU'] >= iou_threshold].copy()
-    actual_matches_df = actual_matches_df.sort_values(by=['IOU'], ascending=False).drop_duplicates(subset=['label_id', 'image_id_labels'])
-    actual_matches_df['IOU'] = actual_matches_df.IOU.round(3)
+    actual_matches_gdf = best_matches_gdf[best_matches_gdf['IOU'] >= iou_threshold].copy()
+    actual_matches_gdf = actual_matches_gdf.sort_values(by=['IOU'], ascending=False).drop_duplicates(subset=['label_id', 'image_id_labels'])
+    actual_matches_gdf['IOU'] = actual_matches_gdf.IOU.round(3)
 
-    del best_matches_df, candidates_tp_df
+    del best_matches_gdf, candidates_tp_gdf
 
     # Test that labels and detections share the same class (id starting at 1 for labels and at 0 for detections)
-    condition = actual_matches_df.label_class == actual_matches_df.det_class + 1
-    tp_df = actual_matches_df[condition].reset_index(drop=True)
-    assert len(tp_df) == len(actual_matches_df), "Unmatched class in the mono-class case"
+    condition = actual_matches_gdf.label_class == actual_matches_gdf.det_class + 1
+    tp_df = actual_matches_gdf[condition].reset_index(drop=True)
+    assert len(tp_df) == len(actual_matches_gdf), "Unmatched class in the mono-class case"
     tp_df['tag'] = 'TP'
     tp_df = tp_df.drop(columns=['index_labels', 'image_id_labels', 'geometry', 'label_geom']).rename(columns={'image_id_dets': 'image_id'})
     tagged_df_dict['tp_df'] = pd.concat([tagged_df_dict['tp_df'], tp_df], ignore_index=True)
@@ -84,10 +84,10 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     matched_det_ids = tp_df['det_id'].unique().tolist()
     matched_label_ids = tp_df['label_id'].unique().tolist()
 
-    del actual_matches_df, tp_df
+    del actual_matches_gdf, tp_df
 
     # FALSE POSITIVES
-    fp_df = _dets_df[~_dets_df.det_id.isin(matched_det_ids)].copy()
+    fp_df = _dets_gdf[~_dets_gdf.det_id.isin(matched_det_ids)].copy()
     assert all(~fp_df.duplicated()), "Some detections were duplicated."
     fp_df.drop(columns='geometry', inplace=True)
     fp_df['tag'] = 'FP'
@@ -96,15 +96,15 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     del fp_df, left_join
 
     # FALSE NEGATIVES
-    fn_df = _labels_df[~_labels_df.label_id.isin(matched_label_ids)].copy()
+    fn_df = _labels_gdf[~_labels_gdf.label_id.isin(matched_label_ids)].copy()
     assert all(~fn_df.duplicated()), "Some labels were duplicated."
     fn_df.drop(columns=['geometry', 'label_geom'], inplace=True)
     fn_df['tag'] = 'FN'
     fn_df['dataset'] = dataset
     tagged_df_dict['fn_df'] = pd.concat([tagged_df_dict['fn_df'], fn_df], ignore_index=True)
 
-    assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fn_df']) == len(_labels_df), "Some labels went missing or were duplicated."
-    assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fp_df']) == len(_dets_df), "Some detections went missing or were duplicated."
+    assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fn_df']) == len(_labels_gdf), "Some labels went missing or were duplicated."
+    assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fp_df']) == len(_dets_gdf), "Some detections went missing or were duplicated."
 
     return tagged_df_dict
 
