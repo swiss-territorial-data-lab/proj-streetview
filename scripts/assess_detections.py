@@ -142,9 +142,10 @@ def main(cfg_file_path):
     # ------ Comparing detections with ground-truth data and computing metrics
 
     # get metrics
-    outer_tqdm_log = tqdm(total=len(metrics_dict.keys()), position=0)
+    datasets_list = ["val"]
+    outer_tqdm_log = tqdm(total=len(datasets_list), position=0)
 
-    for dataset in ["val"]:
+    for dataset in datasets_list:
 
         outer_tqdm_log.set_description_str(f'Current dataset: {dataset}')
         inner_tqdm_log = tqdm(total=len(thresholds), position=1, leave=False)
@@ -198,7 +199,7 @@ def main(cfg_file_path):
     fig_k = go.Figure()
 
 
-    for dataset in ["val"]:
+    for dataset in datasets_list:
         # Plot of the precision vs recall
 
         fig.add_trace(
@@ -222,7 +223,7 @@ def main(cfg_file_path):
     fig.write_html(file_to_write)
     written_files.append(file_to_write)
 
-    for dataset in ["val"]:
+    for dataset in datasets_list:
         # Generate a plot of TP, FN and FP for each class
 
         fig = go.Figure()

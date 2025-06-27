@@ -84,11 +84,22 @@ def segmentation_to_polygon(segm):
     if not poly.is_valid and 'Self-intersection' in explain_validity(poly):
         valid_poly = make_valid(poly)
         if isinstance(valid_poly, GeometryCollection):
-            poly = MultiPolygon([geom for geom in valid_poly.geoms if isinstance(geom, Polygon)])
+            tmp_list = []
+            for multi_geom in valid_poly.geoms:
+                if isinstance(multi_geom, MultiPolygon):
+                    tmp_list.extend([geom for geom in multi_geom.geoms])
+                else:
+                    tmp_list.extend([multi_geom])
+            poly = MultiPolygon([geom for geom in tmp_list if isinstance(geom, Polygon)])
+            if poly.is_empty:
+                poly = MultiPolygon([geom for geom in valid_poly.geoms if isinstance(geom, Polygon)])
         else:
             poly = valid_poly
 
     if not poly.is_valid:
         logger.warning(f"Polygon is not valid: {poly}")
+
+    if poly.area == 0:
+        logger.warning(f"Polygon area is 0: {poly}")
 
     return poly

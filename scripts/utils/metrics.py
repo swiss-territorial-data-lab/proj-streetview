@@ -64,6 +64,7 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
 
     # Filter detections based on IoU value
     best_matches_df = candidates_tp_df.groupby(['det_id'], group_keys=False).apply(lambda g:g[g.IOU==g.IOU.max()])
+    best_matches_df.drop_duplicates(subset=['det_id'], inplace=True) # Case to IoU are equal for a detection
 
     # Detection, resp labels, with IOU lower than threshold value are considered as FP, resp FN, and saved as such
     actual_matches_df = best_matches_df[best_matches_df['IOU'] >= iou_threshold].copy()
@@ -99,10 +100,11 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     assert all(~fn_df.duplicated()), "Some labels were duplicated."
     fn_df.drop(columns=['geometry', 'label_geom'], inplace=True)
     fn_df['tag'] = 'FN'
+    fn_df['dataset'] = dataset
     tagged_df_dict['fn_df'] = pd.concat([tagged_df_dict['fn_df'], fn_df], ignore_index=True)
 
     assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fn_df']) == len(_labels_df), "Some labels went missing or were duplicated."
-    # assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fp_df']) == len(_dets_df), "Some detections went missing or were duplicated."
+    assert len(tagged_df_dict['tp_df']) + len(tagged_df_dict['fp_df']) == len(_dets_df), "Some detections went missing or were duplicated."
 
     return tagged_df_dict
 

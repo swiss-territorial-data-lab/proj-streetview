@@ -131,6 +131,8 @@ def main(cfg_file_path):
         logger.success(DONE_MSG)
 
         if SAMPLE_TAGGED_IMG_SUBDIR:
+            if os.path.exists(dir):
+                os.system(f"rm -r {dir}")
             os.makedirs(SAMPLE_TAGGED_IMG_SUBDIR, exist_ok=True)
             logger.info("Let's tag some sample images...")
             for d in DatasetCatalog.get(dataset)[0:min(len(DatasetCatalog.get(dataset)), 10)]:

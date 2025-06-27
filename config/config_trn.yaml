@@ -7,7 +7,7 @@ prepare_coco_data.py:
   output_dir: outputs/OD
   image_dir: data/RCNE/panoramic_images/
   COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
   license: [{id: 1,name: unknown, url: unknown}]
   categories: [{id: 1, name: manhole, supercategory: round plate}]
   tile_size: 512
