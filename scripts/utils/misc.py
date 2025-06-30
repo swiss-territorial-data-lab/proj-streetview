@@ -1,9 +1,30 @@
 import sys
 import json
+import pygeohash as pgh
+import networkx as nx
 
 from loguru import logger
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
 from shapely.validation import explain_validity, make_valid
+
+
+def assign_groups(row, group_index):
+    """Assign a group number to GT and detection of a geodataframe
+
+    Args:
+        row (row): geodataframe row
+
+    Returns:
+        row (row): row with a new 'group_id' column
+    """
+
+    try:
+        row['group_id'] = group_index[row['geohash_left']]
+    except: 
+        row['group_id'] = None
+    
+    return row
+    
 
 
 def format_logger(logger):
@@ -38,6 +59,33 @@ def find_category(df):
     return df
 
 
+def geohash(row):
+    """Geohash encoding (https://en.wikipedia.org/wiki/Geohash) of a location (point).
+    If geometry type is a point then (x, y) coordinates of the point are considered. 
+    If geometry type is a polygon then (x, y) coordinates of the polygon centroid are considered. 
+    Other geometries are not handled at the moment    
+
+    Args:
+        row: geodaframe row
+
+    Raises:
+        Error: geometry error
+
+    Returns:
+        out (str): geohash code for a given geometry
+    """
+    
+    if row.geometry.geom_type == 'Point':
+        out = pgh.encode(latitude=row.geometry.y, longitude=row.geometry.x, precision=16)
+    elif row.geometry.geom_type == 'Polygon':
+        out = pgh.encode(latitude=row.geometry.centroid.y, longitude=row.geometry.centroid.x, precision=16)
+    else:
+        logger.error(f"{row.geometry.geom_type} type is not handled (only Point or Polygon geometry type)")
+        sys.exit()
+
+    return out
+
+
 def get_number_of_classes(coco_files_dict):
     """Read the number of classes from the tileset COCO file.
 
@@ -59,6 +107,23 @@ def get_number_of_classes(coco_files_dict):
     logger.info(f"Working with {num_classes} class{'es' if num_classes > 1 else ''}.")
 
     return num_classes
+
+
+def make_groups(gdf):
+    """Identify groups based on pairing nodes with NetworkX. The Graph is a collection of nodes.
+    Nodes are hashable objects (geohash (str)).
+
+    Returns:
+        groups (list): list of connected geohash groups
+    """
+
+    g = nx.Graph()
+    for row in gdf[gdf.geohash_left.notnull()].itertuples():
+        g.add_edge(row.geohash_left, row.geohash_right)
+
+    groups = list(nx.connected_components(g))
+
+    return groups
 
 
 def segmentation_to_polygon(segm):

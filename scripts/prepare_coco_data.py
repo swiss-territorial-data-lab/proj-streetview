@@ -59,7 +59,6 @@ def main(cfg_file_path):
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_dir']
     IMAGE_DIR = cfg['image_dir']
-    TILE_SIZE = cfg['tile_size']
 
     COCO_FILES_DICT = cfg['COCO_files']
     LICENSE = cfg['license']
@@ -67,6 +66,11 @@ def main(cfg_file_path):
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     SEED = cfg['seed']
     OVERWRITE_IMAGES = cfg['overwrite_images']
+
+    OVERLAP_X = 224
+    OVERLAP_Y = 224
+    PADDING_Y = 736
+    TILE_SIZE = 512
     DEBUG = False
 
     os.chdir(WORKING_DIR)
@@ -88,9 +92,6 @@ def main(cfg_file_path):
         images_and_annotations_df = images_and_annotations_df.head(100)
 
     # Iterate through images and clip them into tiles
-    overlap_x = 224
-    overlap_y = 224
-    padding_y = 736
     image_id = 0
     annotation_id = 0
     tiles_df = pd.DataFrame()
@@ -107,8 +108,8 @@ def main(cfg_file_path):
         # Clip image
         h, w = img.shape[:2]
         tiles = []
-        for i in range(padding_y, h - padding_y, TILE_SIZE - overlap_y):
-            for j in range(0, w - overlap_x, TILE_SIZE - overlap_x):
+        for i in range(PADDING_Y, h - PADDING_Y, TILE_SIZE - OVERLAP_Y):
+            for j in range(0, w - OVERLAP_X, TILE_SIZE - OVERLAP_X):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                 tile = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
                 assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, "Tile shape not 512 x 512 px"
