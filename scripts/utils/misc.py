@@ -4,8 +4,40 @@ import pygeohash as pgh
 import networkx as nx
 
 from loguru import logger
+from pandas import DataFrame
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
 from shapely.validation import explain_validity, make_valid
+
+
+def assemble_coco_json(images, annotations, categories):
+    """
+    Assemble a COCO JSON dictionary from annotations, images and categories DataFrames.
+
+    Parameters
+    ----------
+    images : DataFrame or list
+        images DataFrame or record list containing the images info.
+    annotations : DataFrame or list
+        annotations DataFrame or record list containing the annotations info.
+    categories : DataFrame or list
+        categories DataFrame or record list containing the categories info.
+
+    Returns
+    -------
+    COCO_dict : dict
+        A dictionary with the COCO JSON structure.
+    """
+    COCO_dict = {}
+    for info_type, entry in {"images": images, "annotations": annotations, "categories": categories}.items():
+        if isinstance(entry, DataFrame):
+            entry = json.loads(entry.to_json(orient="records"))
+        elif not isinstance(entry, list):
+            logger.critical(f"Entry {entry} is not a DataFrame or a list.")
+            sys.exit(1)
+
+        COCO_dict[info_type] = entry
+
+    return COCO_dict
 
 
 def assign_groups(row, group_index):

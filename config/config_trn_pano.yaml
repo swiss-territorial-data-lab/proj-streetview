@@ -1,0 +1,38 @@
+transform_detections.py:
+  working_directory: .
+  output_folder: outputs/OD
+  image_dir: data/RCNE/panoramic_images
+  detections_files:
+    trn: outputs/OD/trn_detections_at_0dot05_threshold.json
+    val: outputs/OD/val_detections_at_0dot05_threshold.json
+    tst: outputs/OD/tst_detections_at_0dot05_threshold.json
+  panoptic_coco_files:
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+  score_threshold: 0.3
+
+clipped_labels_to_panoptic.py:
+  working_directory: .
+  output_folder: outputs/OD
+  image_dir: data/RCNE/panoramic_images
+  labels_files:
+    trn: outputs/OD/COCO_trn.json
+    val: outputs/OD/COCO_val.json
+    tst: outputs/OD/COCO_tst.json
+  panoptic_coco_files:
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+  score_threshold: 0.3
+
+
+assess_detections.py:
+  working_directory: .
+  output_folder: outputs/OD/panoptic_eval
+  metrics_method: micro-average
+  datasets:
+    ground_truth_files:
+      trn: COCO_trn.json
+      val: COCO_val.json
+      tst: COCO_tst.json
+    detections:
+      trn: outputs/OD/trn_detections_at_0dot05_threshold.json
+      val: outputs/OD/val_detections_at_0dot05_threshold.json
+      tst: outputs/OD/tst_detections_at_0dot05_threshold.jsonn

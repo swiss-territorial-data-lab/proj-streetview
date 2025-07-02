@@ -8,8 +8,6 @@ prepare_coco_data.py:
   image_dir: data/RCNE/panoramic_images/
   COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
-  license: [{id: 1,name: unknown, url: unknown}]
-  categories: [{id: 1, name: manhole, supercategory: round plate}]
   ratio_wo_annotations: 0
   seed: 42
   overwrite_images: False
@@ -43,7 +41,7 @@ make_inference.py:
 
 assess_detections.py:
   working_directory: outputs/OD
-  output_folder: assessment
+  output_folder: eval
   metrics_method: micro-average
   datasets:
     ground_truth_files:
@@ -54,16 +52,3 @@ assess_detections.py:
       trn: trn_detections_at_0dot05_threshold.json
       val: val_detections_at_0dot05_threshold.json
       tst: tst_detections_at_0dot05_threshold.json
-
-  
-transform_detections.py:
-  working_directory: .
-  output_folder: outputs/OD
-  image_dir: data/RCNE/panoramic_images
-  detections_files:
-    trn: outputs/OD/trn_detections_at_0dot05_threshold.json
-    val: outputs/OD/val_detections_at_0dot05_threshold.json
-    tst: outputs/OD/tst_detections_at_0dot05_threshold.json
-  panoptic_coco_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
-  score_threshold: 0.3

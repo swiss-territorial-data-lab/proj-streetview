@@ -12,7 +12,8 @@ from math import ceil
 
 from detectron2.data.datasets import load_coco_json, register_coco_instances
 
-from utils.misc import format_logger, segmentation_to_polygon
+from utils.constants import CATEGORIES
+from utils.misc import assemble_coco_json, format_logger, segmentation_to_polygon
 
 logger = format_logger(logger)
 
@@ -61,8 +62,6 @@ def main(cfg_file_path):
     IMAGE_DIR = cfg['image_dir']
 
     COCO_FILES_DICT = cfg['COCO_files']
-    LICENSE = cfg['license']
-    CATEGORIES = cfg['categories']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     SEED = cfg['seed']
     OVERWRITE_IMAGES = cfg['overwrite_images']
@@ -226,15 +225,11 @@ def main(cfg_file_path):
     dataset_tiles_dict = {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}
     for dataset in dataset_tiles_dict.keys():
         # Split annotations
-        dataset_annotations = clipped_annotations_df[clipped_annotations_df["image_id"].isin(dataset_tiles_dict[dataset]["id"])]
+        dataset_annotations = clipped_annotations_df[clipped_annotations_df["image_id"].isin(dataset_tiles_dict[dataset]["id"])].copy()
         logger.info(f"Found {len(dataset_annotations)} annotations in the {dataset} dataset.")
 
         # Create COCO dicts
-        coco_dict = {}
-        coco_dict["images"] = json.loads(dataset_tiles_dict[dataset].to_json(orient="records"))
-        coco_dict["annotations"] = json.loads(dataset_annotations.to_json(orient="records"))
-        coco_dict["categories"] = CATEGORIES.copy()
-        coco_dict["licenses"] = LICENSE.copy()
+        coco_dict = assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
 
         # Create COCO files
         logger.info(f"Creating COCO file for {dataset} set.")

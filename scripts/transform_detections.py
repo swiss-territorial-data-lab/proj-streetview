@@ -13,9 +13,54 @@ from geopandas import GeoDataFrame, GeoSeries, sjoin
 from shapely.geometry import MultiPolygon, Polygon
 from statistics import median
 
-from utils.misc import assign_groups, format_logger, make_groups, segmentation_to_polygon
+import utils.misc as misc
+from utils.constants import CATEGORIES
 
-logger = format_logger(logger)
+logger = misc.format_logger(logger)
+
+
+def group_annotations(transformed_detections_gdf):
+    # Control overlap between detections
+    self_join = sjoin(transformed_detections_gdf, transformed_detections_gdf, how='inner')
+    valid_self_join = self_join[
+        (self_join['id_left'] <= self_join['id_right'])
+        & (self_join['image_id_left'] == self_join['image_id_right'])
+        & (self_join['dataset_left'] == self_join['dataset_right'])
+    ].copy()
+
+    # Do groups because of segmentation on more than two tiles
+    groups = misc.make_groups(valid_self_join)
+    group_index = {node: i for i, group in enumerate(groups) for node in group}
+    valid_self_join = valid_self_join.apply(lambda row: misc.assign_groups(row, group_index), axis=1)
+
+    return valid_self_join
+
+
+def make_new_annotation(group,groupped_pairs_df, buffer=1):
+    group_dets = groupped_pairs_df[groupped_pairs_df.group_id==group].copy()
+
+    # Keep lowest id, median score. Calculate new segmentation, area and bbox
+    new_geometry = shp.unary_union(
+        pd.concat([group_dets.buffered_geometry, GeoSeries(group_dets.geohash_right.apply(shp.from_wkb))]).drop_duplicates()
+    ).buffer(-buffer)
+    new_segmentation = polygon_to_segmentation(new_geometry)
+    bbox = new_geometry.bounds
+    
+    ann_dict = {
+        'id': int(group_dets.id_left.min()),
+        'image_id': int(group_dets.image_id_left.iloc[0]),
+        'category_id': int(group_dets.category_id_left.iloc[0]),
+        'dataset': group_dets.dataset_left.iloc[0],
+        'bbox': [bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]],
+        'segmentation': new_segmentation,
+        'area': new_geometry.area,
+    }
+
+    if 'score' in group_dets.columns:
+        # Todo: ensure each score appear only once
+        ann_dict['score'] = median(group_dets.score_left.tolist() + group_dets.score_right.tolist())
+
+    return ann_dict
 
 
 def polygon_to_segmentation(multipolygon):
@@ -45,6 +90,43 @@ def polygon_to_segmentation(multipolygon):
     return segmentation
 
 
+def transform_annotations(tile_name, annotations_df, images_df, images_dir='images', buffer=1, id_field='id', category_field='category_id'):
+    name_parts = tile_name.rstrip('.jpg').split('_')
+    original_name = os.path.join(images_dir, os.path.basename('_'.join(name_parts[:-2]) + '.jpg'))
+    tile_origin_x, tile_origin_y = int(name_parts[-2]), int(name_parts[-1])
+
+    annotations_on_tiles_df = annotations_df[annotations_df.file_name==tile_name].copy()
+    annotations_on_tiles_list = []
+    for ann in annotations_on_tiles_df.itertuples():
+
+        ann_segmentation = []
+        for poly in ann.segmentation:
+            poly_coordinates = []
+            for coor_id in range(0, len(poly), 2):
+                poly_coordinates.append(poly[coor_id] + tile_origin_x)
+                poly_coordinates.append(poly[coor_id + 1] + tile_origin_y)
+            ann_segmentation.append(poly_coordinates)
+        buffered_geom = misc.segmentation_to_polygon(ann_segmentation).buffer(buffer)
+        ann_geohash = shp.to_wkb(buffered_geom)
+
+        image_id = images_df.loc[images_df.file_name==original_name, 'image_id'].iloc[0]
+
+        annotations_on_tiles_list.append({
+            'id': getattr(ann, id_field),
+            'image_id': image_id,
+            'category_id': getattr(ann, category_field),
+            'dataset': ann.dataset,
+            'segmentation': ann_segmentation,
+            'buffered_geometry': buffered_geom,
+            'geohash': ann_geohash
+        })
+
+        if 'score' in annotations_on_tiles_df.columns:
+            annotations_on_tiles_list[-1]['score'] = round(ann.score, 3)
+
+    return annotations_on_tiles_list
+
+
 def main(cfg_file_path):
 
     tic = time()
@@ -67,6 +149,7 @@ def main(cfg_file_path):
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    logger.info(f"Read detections with a threshold of {SCORE_THRESHOLD} on the confidence score...")
     detections_df = pd.DataFrame()
     for path in DETECTIONS_FILES.values():
         with open(path) as fp:
@@ -80,83 +163,36 @@ def main(cfg_file_path):
         coco_data = load_coco_json(coco_file, IMAGE_DIR, dataset_key)
         images_df = pd.concat((images_df, pd.DataFrame(coco_data).drop(columns='annotations')), ignore_index=True)
 
+    del coco_data
+
     transformed_detections= []
     for tile_name in tqdm(detections_df['file_name'].unique(), desc="Tranform detections back to panoptic images"):
-        name_parts = tile_name.rstrip('.jpg').split('_')
-        original_name = os.path.join(IMAGE_DIR, '_'.join(name_parts[:-2]))
-        tile_origin_x, tile_origin_y = int(name_parts[-2]), int(name_parts[-1])
-
-        detections_on_tiles_df = detections_df[detections_df.file_name==tile_name].copy()
-        for det in detections_on_tiles_df.itertuples():
-
-            det_segmentation = []
-            for poly in det.segmentation:
-                poly_coordinates = []
-                for coor_id in range(0, len(poly), 2):
-                    poly_coordinates.append(poly[coor_id] + tile_origin_x)
-                    poly_coordinates.append(poly[coor_id + 1] + tile_origin_y)
-                det_segmentation.append(poly_coordinates)
-            buffered_geom = segmentation_to_polygon(det_segmentation).buffer(BUFFER)
-            det_geohash = shp.to_wkb(buffered_geom)
-
-            image_id = images_df.loc[images_df.file_name==original_name + '.jpg', 'image_id'].iloc[0]
-
-            transformed_detections.append(
-                {
-                    'id': det.det_id,
-                    'image_id': image_id,
-                    'category_id': det.det_class,
-                    'score': round(det.score, 3),
-                    'dataset': det.dataset,
-                    'segmentation': det_segmentation,
-                    'buffered_geometry': buffered_geom,
-                    'geohash': det_geohash
-                }
-            )
+        transformed_detections.extend(
+            transform_annotations(tile_name, detections_df, images_df, images_dir=IMAGE_DIR, buffer=BUFFER, id_field='det_id', category_field='det_class')
+        )
 
     transformed_detections_gdf = GeoDataFrame(pd.DataFrame.from_records(transformed_detections), geometry='buffered_geometry')
 
-    logger.info('Group overlapping detections...')
-    # Control overlap between detections
-    self_join = sjoin(transformed_detections_gdf, transformed_detections_gdf, how='inner')
-    valid_self_join = self_join[
-        (self_join['id_left'] <= self_join['id_right'])
-        & (self_join['image_id_left'] == self_join['image_id_right'])
-        & (self_join['dataset_left'] == self_join['dataset_right'])
-    ].copy()
+    for dataset in DETECTIONS_FILES.keys():
+        logger.info(f'Working on the {dataset} dataset...')
+        subset_transformed_detections_gdf = transformed_detections_gdf[transformed_detections_gdf.dataset==dataset].copy()
 
-    # Do groups because of segmentation on more than two tiles
-    groups = make_groups(valid_self_join)
-    group_index = {node: i for i, group in enumerate(groups) for node in group}
-    valid_self_join = valid_self_join.apply(lambda row: assign_groups(row, group_index), axis=1)
+        logger.info('Groupping overlapping detections...')
+        groupped_pairs_df = group_annotations(subset_transformed_detections_gdf)
 
-    merged_detections = []
-    for group in tqdm(valid_self_join.group_id.unique(), desc="Merge detections in groups"):
-        group_dets = valid_self_join[valid_self_join.group_id==group].copy()
+        merged_detections = []
+        for group in tqdm(groupped_pairs_df.group_id.unique(), desc="Merge detections in groups"):
+            merged_detections.append(make_new_annotation(group, groupped_pairs_df, buffer=BUFFER))
 
-        # Keep lowest id, median score. Calculate new segmentation, area and bbox
-        score = median(group_dets.score_left.tolist() + group_dets.score_right.tolist())
-        new_geometry = shp.unary_union(
-            pd.concat([group_dets.buffered_geometry, GeoSeries(group_dets.geohash_right.apply(shp.from_wkb))]).drop_duplicates()
-        ).buffer(-BUFFER)
-        new_segmentation = polygon_to_segmentation(new_geometry)
-        bbox = new_geometry.bounds
-        merged_detections.append({
-            'id': int(group_dets.id_left.min()),
-            'image_id': int(group_dets.image_id_left.iloc[0]),
-            'category_id': int(group_dets.category_id_left.iloc[0]),
-            'score': score,
-            'dataset': group_dets.dataset_left.iloc[0],
-            'bbox': [bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]],
-            'segmentation': new_segmentation,
-            'area': new_geometry.area,
-        })
+        logger.info("Transforming detections to COCO format...")
+        subset_images_df = images_df[images_df.image_id.isin(subset_transformed_detections_gdf.image_id.unique())].copy()
+        coco_dict = misc.assemble_coco_json(merged_detections, subset_images_df, CATEGORIES)
 
-    # Save to coco json
-    filepath = os.path.join(OUTPUT_DIR, 'panoptic_detections.json')
-    with open(filepath, 'w') as fp:
-        json.dump(merged_detections, fp)
-    logger.info(f'Detections saved to {filepath}.')
+        # Save to coco json
+        filepath = os.path.join(OUTPUT_DIR, f'{dataset}_COCO_panoptic_detections.json')
+        with open(filepath, 'w') as fp:
+            json.dump(coco_dict, fp)
+        logger.info(f'Detections saved to {filepath}.')
 
     toc = time()
     logger.info(f"Finished in {toc - tic:.2f} seconds.")
