@@ -42,7 +42,7 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
 
     # TRUE POSITIVES
     left_join = pd.DataFrame()
-    if dataset == 'trn':
+    if dataset in ['trn', 'all']:
         for image in _dets_gdf.image_id.unique():
             left_join = pd.concat([
                 left_join, sjoin(

@@ -15,16 +15,9 @@ from geopandas import GeoDataFrame
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 
-# the following lines allow us to import modules from within this file's parent folder
-from inspect import getsourcefile
-current_path = os.path.abspath(getsourcefile(lambda:0))
-current_dir = os.path.dirname(current_path)
-parent_dir = current_dir[:current_dir.rfind(os.path.sep)]
-sys.path.insert(0, parent_dir)
-
 from utils import misc
 from utils import metrics
-from utils.constants import DONE_MSG, SCATTER_PLOT_MODE
+from utils.constants import CATEGORIES, DONE_MSG, SCATTER_PLOT_MODE
 
 from loguru import logger
 logger = misc.format_logger(logger)
@@ -60,7 +53,7 @@ def main(cfg_file_path):
 
     # Class ids: monoclass case
     id_classes = [0]
-    categories_info_df = pd.DataFrame({'label_class': [1], 'category': ['manhole'], 'supercategory': ['round plate']})
+    categories_info_df = pd.DataFrame(CATEGORIES[0], index=[0]).rename(columns={'id': 'label_class', 'name': 'category'})
 
     logger.info("Loading ground truth...")
 
@@ -196,8 +189,6 @@ def main(cfg_file_path):
     # let's generate some plots!
 
     fig = go.Figure()
-    fig_k = go.Figure()
-
 
     for dataset in datasets_list:
         # Plot of the precision vs recall
@@ -275,14 +266,14 @@ def main(cfg_file_path):
     # ------ tagging detections
 
     # we select the threshold which maximizes the f1-score on the val dataset or the one passed by the user
-    if 'val' in metrics_cl_df_dict.keys() and CONFIDENCE_THRESHOLD:
+    if 'val' in metrics_df_dict.keys() and CONFIDENCE_THRESHOLD:
         logger.error('The confidence threshold was determined over the val dataset, but a confidence threshold is given in the config file.')
         logger.error(f'confidence threshold: val dataset = {metrics_df_dict["val"].loc[metrics_df_dict["val"]["f1"].argmax(), "threshold"]}, config = {CONFIDENCE_THRESHOLD}')
         logger.warning('The confidence threshold from the config file is used.')
     if CONFIDENCE_THRESHOLD:
         selected_threshold = CONFIDENCE_THRESHOLD
         logger.info(f"Tagging detections with threshold = {selected_threshold:.2f}, which is the threshold given in the config file.")
-    elif 'val' in metrics_cl_df_dict.keys():
+    elif 'val' in metrics_df_dict.keys():
         selected_threshold = metrics_df_dict['val'].loc[metrics_df_dict['val']['f1'].argmax(), 'threshold']
         logger.info(f"Tagging detections with threshold = {selected_threshold:.2f}, which maximizes the f1-score on the val dataset.")
     else:
@@ -295,6 +286,8 @@ def main(cfg_file_path):
     logger.info(f'Method to compute the metrics = {METHOD}')
 
     global_metrics_dict = {'dataset': [], 'precision': [], 'recall': [], 'f1': []}
+    metrics_cl_df_dict = {}     # re-initialisation of the variable
+    metrics_dict_by_cl = {dataset: [] for dataset in dets_gdf_dict.keys()}     # re-initialisation of the variable
     for dataset in metrics_dict.keys():
 
         tmp_dets_gdf = dets_gdf_dict[dataset][dets_gdf_dict[dataset].score >= selected_threshold].copy()
@@ -308,12 +301,26 @@ def main(cfg_file_path):
 
         tagged_dets_gdf_dict[dataset] = pd.concat(tagged_df_dict.values())
 
-        _, _, _, _, _, precision, recall, f1 = metrics.get_metrics(id_classes=id_classes, method=METHOD, **tagged_df_dict)
+        tp_k, fp_k, fn_k, p_k, r_k, precision, recall, f1 = metrics.get_metrics(id_classes=id_classes, method=METHOD, **tagged_df_dict)
         global_metrics_dict['dataset'].append(dataset)
         global_metrics_dict['precision'].append(precision)
         global_metrics_dict['recall'].append(recall)
         global_metrics_dict['f1'].append(f1)
         logger.info(f'Dataset = {dataset} => precision = {precision:.3f}, recall = {recall:.3f}, f1 = {f1:.3f}')
+
+        # label classes starting at 1 and detection classes starting at 0.
+        for id_cl in id_classes:
+            metrics_dict_by_cl[dataset].append({
+                'threshold': selected_threshold,
+                'class': id_cl,
+                'precision_k': p_k[id_cl],
+                'recall_k': r_k[id_cl],
+                'TP_k' : tp_k[id_cl],
+                'FP_k' : fp_k[id_cl],
+                'FN_k' : fn_k[id_cl],
+            })
+
+        metrics_cl_df_dict[dataset] = pd.DataFrame.from_records(metrics_dict_by_cl[dataset])
 
     tagged_dets_df = pd.concat([tagged_dets_gdf_dict[x] for x in metrics_dict.keys()])
     tagged_dets_df['det_category'] = [
@@ -334,11 +341,10 @@ def main(cfg_file_path):
     metrics_by_cl_df = pd.DataFrame()
     for dataset in metrics_cl_df_dict.keys():
         dataset_df = metrics_cl_df_dict[dataset].copy()
-        dataset_thrsld_df = dataset_df[dataset_df.threshold==selected_threshold].copy()
-        dataset_thrsld_df['dataset'] = dataset
-        dataset_thrsld_df.drop(columns=['threshold'], inplace=True)
+        dataset_df['dataset'] = dataset
+        dataset_df.drop(columns=['threshold'], inplace=True)
 
-        metrics_by_cl_df = pd.concat([metrics_by_cl_df, dataset_thrsld_df], ignore_index=True)
+        metrics_by_cl_df = pd.concat([metrics_by_cl_df, dataset_df], ignore_index=True)
     
     metrics_by_cl_df['category'] = [
         categories_info_df.loc[categories_info_df.label_class==det_class+1, 'category'].iloc[0] 
