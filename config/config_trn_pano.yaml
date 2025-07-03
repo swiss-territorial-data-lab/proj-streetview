@@ -10,7 +10,7 @@ transform_detections.py:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
   score_threshold: 0.3
 
-clipped_labels_to_panoptic.py:
+clipped_labels_to_panoramic.py:
   working_directory: .
   output_folder: outputs/OD
   image_dir: data/RCNE/panoramic_images
@@ -24,15 +24,15 @@ clipped_labels_to_panoptic.py:
 
 
 assess_detections.py:
-  working_directory: .
-  output_folder: outputs/OD/panoptic_eval
+  working_directory: outputs/OD
+  output_folder: panoptic_eval
   metrics_method: micro-average
   datasets:
     ground_truth_files:
-      trn: COCO_trn.json
-      val: COCO_val.json
-      tst: COCO_tst.json
-    detections:
-      trn: outputs/OD/trn_detections_at_0dot05_threshold.json
-      val: outputs/OD/val_detections_at_0dot05_threshold.json
-      tst: outputs/OD/tst_detections_at_0dot05_threshold.jsonn
+      trn: trn_COCO_panoptic_labels.json
+      val: val_COCO_panoptic_labels.json
+      tst: tst_COCO_panoptic_labels.json
+    detections_files:
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
+      tst: tst_COCO_panoptic_detections.json

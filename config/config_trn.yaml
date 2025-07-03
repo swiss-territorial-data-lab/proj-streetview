@@ -48,7 +48,7 @@ assess_detections.py:
       trn: COCO_trn.json
       val: COCO_val.json
       tst: COCO_tst.json
-    detections:
+    detections_files:
       trn: trn_detections_at_0dot05_threshold.json
       val: val_detections_at_0dot05_threshold.json
       tst: tst_detections_at_0dot05_threshold.json

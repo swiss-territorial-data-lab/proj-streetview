@@ -35,7 +35,7 @@ def main(cfg_file_path):
 
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder']
-    DETECTION_FILES = cfg['datasets']['detections']
+    DETECTION_FILES = cfg['datasets']['detections_files']
     GT_FILES = cfg['datasets']['ground_truth_files']
     
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
@@ -64,7 +64,7 @@ def main(cfg_file_path):
     for dataset, labels_file in GT_FILES.items():
         with open(labels_file) as fp:
             coco_dict = json.load(fp)
-        labels_df = pd.DataFrame(coco_dict['annotations'])
+        labels_df = pd.DataFrame.from_records(coco_dict['annotations'])
 
         # Get annotation geometry
         labels_df['geometry'] = labels_df['segmentation'].apply(lambda x: misc.segmentation_to_polygon(x))
@@ -78,7 +78,7 @@ def main(cfg_file_path):
         label_segm_df = labels_df[['id', 'segmentation', 'bbox']].rename(columns={
             'id': 'label_id', 'segmentation': 'segmentation_labels', 'bbox': 'bbox_labels'
         })
-        labels_df.drop(columns=['segmentation', 'iscrowd', 'supercategory', 'bbox'], inplace=True)
+        labels_df.drop(columns=['segmentation', 'iscrowd', 'supercategory', 'bbox'], inplace=True, errors='ignore')
 
         labels_gdf_dict[dataset] = GeoDataFrame(labels_df)
 
@@ -102,11 +102,16 @@ def main(cfg_file_path):
     det_segmentation_df = pd.DataFrame()
     for dataset, dets_file in DETECTION_FILES.items():
         with open(dets_file) as fp:
-            dets_dict = json.load(fp)   
+            dets_dict = json.load(fp)
+        if isinstance(dets_dict, dict):
+            dets_dict = dets_dict['annotations']
         dets_df = pd.DataFrame.from_records(dets_dict)
 
-        # Get geometry
-        dets_df = pd.merge(dets_df, tiles_df_dict[dataset][['file_name', 'image_id']], how='left', on='file_name')
+        # Format detection info
+        if 'image_id' not in dets_df.columns:
+            dets_df = pd.merge(dets_df, tiles_df_dict[dataset][['file_name', 'image_id']], how='left', on='file_name')
+        if 'det_id' not in dets_df.columns:
+            dets_df.rename(columns={'id': 'det_id', 'category_id': 'det_class'}, inplace=True)
         dets_df['geometry'] = dets_df['segmentation'].apply(lambda x: misc.segmentation_to_polygon(x))
         no_geom_tmp = dets_df[dets_df.geometry.isna()]
         if no_geom_tmp.shape[0] > 0:
@@ -130,7 +135,7 @@ def main(cfg_file_path):
     metrics_dict_by_cl = {dataset: [] for dataset in dets_gdf_dict.keys()}
     metrics_df_dict = {}
     metrics_cl_df_dict = {}
-    thresholds = np.arange(0.05, 1., 0.05)
+    thresholds = np.arange(round(dets_gdf_dict['val'].score.min()*2, 1)/2, 1., 0.05)
    
     # ------ Comparing detections with ground-truth data and computing metrics
 

@@ -77,7 +77,7 @@ def main(cfg_file_path):
 
         logger.info("Transforming labels to COCO format...")
         subset_images_df = images_df[images_df.image_id.isin(subset_transformed_labels_gdf.image_id.unique())].copy()
-        coco_dict = misc.assemble_coco_json(merged_labels, subset_images_df, CATEGORIES)
+        coco_dict = misc.assemble_coco_json(subset_images_df, merged_labels, CATEGORIES)
 
         # Save to coco json
         filepath = os.path.join(OUTPUT_DIR, f'{dataset}_COCO_panoptic_labels.json')
