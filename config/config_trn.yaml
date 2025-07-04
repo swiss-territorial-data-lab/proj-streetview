@@ -17,6 +17,7 @@ train_model.py:
   working_directory: outputs/OD
   log_subfolder: logs
   sample_tagged_img_subfolder: sample_training_images
+  resume_training: True
   COCO_files:
     trn: COCO_trn.json
     val: COCO_val.json

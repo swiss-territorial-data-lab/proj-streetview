@@ -48,6 +48,7 @@ def main(cfg_file_path):
     # ---- parse config file    
 
     DEBUG = cfg['debug_mode'] if 'debug_mode' in cfg.keys() else False
+    RESUME_TRAINING = cfg['resume_training'] if 'resume_training' in cfg.keys() else False
     
     if 'model_zoo_checkpoint_url' in cfg['model_weights'].keys():
         MODEL_ZOO_CHECKPOINT_URL = cfg['model_weights']['model_zoo_checkpoint_url']
@@ -76,15 +77,8 @@ def main(cfg_file_path):
     LOG_SUBDIR = cfg['log_subfolder']
     
     os.chdir(WORKING_DIR)
-    # Erase folder if exists and make them anew
-    for dir in [SAMPLE_TAGGED_IMG_SUBDIR, LOG_SUBDIR]:
-        if os.path.exists(dir):
-            os.system(f"rm -r {dir}")
-        os.makedirs(dir)
-
     written_files = []
 
-    
     # ---- register datasets
     register_coco_instances("trn_dataset", {}, COCO_TRN_FILE, "")
     register_coco_instances("val_dataset", {}, COCO_VAL_FILE, "")
@@ -92,19 +86,26 @@ def main(cfg_file_path):
     
     registered_datasets = ['trn_dataset', 'val_dataset', 'tst_dataset']
 
-    for dataset in registered_datasets:
-    
-        for d in DatasetCatalog.get(dataset)[0:min(len(DatasetCatalog.get(dataset)), 4)]:
-            output_filename = "tagged_" + d["file_name"].split('/')[-1]
-            output_filename = output_filename.replace('tif', 'png')
-            
-            img = cv2.imread(d["file_name"])  
-            
-            visualizer = Visualizer(img[:, :, ::-1], metadata=MetadataCatalog.get(dataset), scale=1.0)
-            
-            vis = visualizer.draw_dataset_dict(d)
-            cv2.imwrite(os.path.join(SAMPLE_TAGGED_IMG_SUBDIR, output_filename), vis.get_image()[:, :, ::-1])
-            written_files.append(os.path.join(WORKING_DIR, SAMPLE_TAGGED_IMG_SUBDIR, output_filename))
+    if not RESUME_TRAINING:
+        # Erase folder if exists and make them anew
+        for dir in [SAMPLE_TAGGED_IMG_SUBDIR, LOG_SUBDIR]:
+            if os.path.exists(dir):
+                os.system(f"rm -r {dir}")
+            os.makedirs(dir)
+
+        for dataset in registered_datasets:
+        
+            for d in DatasetCatalog.get(dataset)[0:min(len(DatasetCatalog.get(dataset)), 4)]:
+                output_filename = "tagged_" + d["file_name"].split('/')[-1]
+                output_filename = output_filename.replace('tif', 'png')
+                
+                img = cv2.imread(d["file_name"])  
+                
+                visualizer = Visualizer(img[:, :, ::-1], metadata=MetadataCatalog.get(dataset), scale=1.0)
+                
+                vis = visualizer.draw_dataset_dict(d)
+                cv2.imwrite(os.path.join(SAMPLE_TAGGED_IMG_SUBDIR, output_filename), vis.get_image()[:, :, ::-1])
+                written_files.append(os.path.join(WORKING_DIR, SAMPLE_TAGGED_IMG_SUBDIR, output_filename))
             
 
     # ---- set up Detectron2's configuration
@@ -125,11 +126,18 @@ def main(cfg_file_path):
         cfg.SOLVER.MAX_ITER = 500
     
     # ---- do training
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(MODEL_ZOO_CHECKPOINT_URL)
-    trainer = CocoTrainer(cfg)
-    trainer.resume_or_load(resume=False)
-    trainer.train()
     TRAINED_MODEL_PTH_FILE = os.path.join(LOG_SUBDIR, 'model_final.pth')
+    if RESUME_TRAINING:
+        logger.info(f"Resuming training from {TRAINED_MODEL_PTH_FILE}")
+        cfg.MODEL.WEIGHTS = TRAINED_MODEL_PTH_FILE
+        trainer = CocoTrainer(cfg)
+        trainer.resume_or_load(resume=True)
+    else:
+        logger.info(f"Training from scratch from {MODEL_ZOO_CHECKPOINT_URL}")
+        cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(MODEL_ZOO_CHECKPOINT_URL)
+        trainer = CocoTrainer(cfg)
+        trainer.resume_or_load(resume=False)
+    trainer.train()
     written_files.append(os.path.join(WORKING_DIR, TRAINED_MODEL_PTH_FILE))
 
         
