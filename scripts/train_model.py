@@ -96,7 +96,7 @@ def main(cfg_file_path):
         for dataset in registered_datasets:
         
             for d in DatasetCatalog.get(dataset)[0:min(len(DatasetCatalog.get(dataset)), 4)]:
-                output_filename = "tagged_" + d["file_name"].split('/')[-1]
+                output_filename = f"tagged_{dataset.split('_')[0]}" + d["file_name"].split('/')[-1]
                 output_filename = output_filename.replace('tif', 'png')
                 
                 img = cv2.imread(d["file_name"])  
@@ -139,20 +139,14 @@ def main(cfg_file_path):
         trainer.resume_or_load(resume=False)
     trainer.train()
     written_files.append(os.path.join(WORKING_DIR, TRAINED_MODEL_PTH_FILE))
-
-        
-    # ---- evaluate model on the test dataset    
-    #evaluator = COCOEvaluator("tst_dataset", cfg, False, output_dir='.')
-    #val_loader = build_detection_test_loader(cfg, "tst_dataset")
-    #inference_on_dataset(trainer.model, val_loader, evaluator)
    
-    cfg.MODEL.WEIGHTS = TRAINED_MODEL_PTH_FILE
     logger.info("Make some sample detections over the test dataset...")
+    cfg.MODEL.WEIGHTS = TRAINED_MODEL_PTH_FILE
 
     predictor = DefaultPredictor(cfg)
      
     for d in DatasetCatalog.get("tst_dataset")[0:min(len(DatasetCatalog.get("tst_dataset")), 10)]:
-        output_filename = "det_" + d["file_name"].split('/')[-1]
+        output_filename = "det_tst_" + d["file_name"].split('/')[-1]
         output_filename = output_filename.replace('tif', 'png')
         im = cv2.imread(d["file_name"])
         outputs = predictor(im)
