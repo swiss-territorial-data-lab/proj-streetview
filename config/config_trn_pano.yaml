@@ -8,7 +8,7 @@ transform_detections.py:
     tst: outputs/OD/tst_detections_at_0dot05_threshold.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
-  score_threshold: 0.3
+  score_threshold: 0.2
 
 clipped_labels_to_panoramic.py:
   working_directory: .
@@ -20,7 +20,6 @@ clipped_labels_to_panoramic.py:
     tst: outputs/OD/COCO_tst.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
-  score_threshold: 0.3
 
 
 assess_detections.py:

@@ -56,7 +56,7 @@ def make_new_annotation(group,groupped_pairs_df, buffer=1):
         'area': new_geometry.area,
     }
 
-    if 'score' in group_dets.columns:
+    if 'score_left' in group_dets.columns:
         # Todo: ensure each score appear only once
         ann_dict['score'] = median(group_dets.score_left.tolist() + group_dets.score_right.tolist())
 
@@ -154,7 +154,10 @@ def main(cfg_file_path):
     for path in DETECTIONS_FILES.values():
         with open(path) as fp:
             detections_df = pd.concat([detections_df, pd.DataFrame.from_records(json.load(fp))], ignore_index=True)
+
+    logger.info(f"Found {len(detections_df)} detections.")
     detections_df = detections_df[detections_df.score >= SCORE_THRESHOLD]
+    logger.info(f"{len(detections_df)} detections are left after thresholding on the score.")
 
     images_df = pd.DataFrame()
     for dataset_key, coco_file in PANOPTIC_COCO_FILES.items():
@@ -183,10 +186,11 @@ def main(cfg_file_path):
         merged_detections = []
         for group in tqdm(groupped_pairs_df.group_id.unique(), desc="Merge detections in groups"):
             merged_detections.append(make_new_annotation(group, groupped_pairs_df, buffer=BUFFER))
+        logger.info(f"{len(merged_detections)} detections are left after merging.")
 
         logger.info("Transforming detections to COCO format...")
         subset_images_df = images_df[images_df.image_id.isin(subset_transformed_detections_gdf.image_id.unique())].copy()
-        coco_dict = misc.assemble_coco_json(merged_detections, subset_images_df, CATEGORIES)
+        coco_dict = misc.assemble_coco_json(subset_images_df, merged_detections, CATEGORIES)
 
         # Save to coco json
         filepath = os.path.join(OUTPUT_DIR, f'{dataset}_COCO_panoptic_detections.json')
