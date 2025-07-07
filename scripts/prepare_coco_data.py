@@ -12,7 +12,7 @@ from math import ceil
 
 from detectron2.data.datasets import load_coco_json, register_coco_instances
 
-from utils.constants import CATEGORIES
+from utils.constants import CATEGORIES, TILE_SIZE
 from utils.misc import assemble_coco_json, format_logger, segmentation_to_polygon
 
 logger = format_logger(logger)
@@ -69,7 +69,6 @@ def main(cfg_file_path):
     OVERLAP_X = 224
     OVERLAP_Y = 224
     PADDING_Y = 736
-    TILE_SIZE = 512
     DEBUG = False
 
     os.chdir(WORKING_DIR)
@@ -89,6 +88,21 @@ def main(cfg_file_path):
     if DEBUG:
         logger.info("Debug mode activated. Only first 100 images are processed.")
         images_and_annotations_df = images_and_annotations_df.head(100)
+
+    logger.info(f"Found {len(images_and_annotations_df)} images.")
+
+    logger.info("Split tiles into train, val and test sets based on ratio 70% / 15% / 15%...")
+    trn_tiles = images_and_annotations_df.sample(frac=0.7, random_state=SEED)
+    val_tiles = images_and_annotations_df[~images_and_annotations_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
+    tst_tiles = images_and_annotations_df[~images_and_annotations_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
+
+    images_and_annotations_df["dataset"] = None
+    for dataset, df in {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}.items():
+        images_and_annotations_df.loc[images_and_annotations_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+    assert all(images_and_annotations_df["dataset"].notna()), "Not all images were assigned to a dataset"
+
+    logger.info(f"Found {len(trn_tiles)} tiles in train set, {len(val_tiles)} tiles in val set and {len(tst_tiles)} tiles in test set.")
+    del trn_tiles, val_tiles, tst_tiles
 
     # Iterate through images and clip them into tiles
     image_id = 0
@@ -112,7 +126,7 @@ def main(cfg_file_path):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                 tile = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
                 assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, "Tile shape not 512 x 512 px"
-                tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename})
+                tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset})
                 image_id += 1
 
                 if not os.path.exists(os.path.join(OUTPUT_DIR, new_filename)) or OVERWRITE_IMAGES:
@@ -215,14 +229,10 @@ def main(cfg_file_path):
         logger.warning(f"Found {duplicates.sum()} duplicated annotations with different ids. Removing them...")
         clipped_annotations_df = clipped_annotations_df[~duplicates].reset_index(drop=True)
 
-    # Split tiles into train, val and test sets based on ratio 70% / 15% / 15%
-    trn_tiles = tiles_df.sample(frac=0.7, random_state=SEED)
-    val_tiles = tiles_df[~tiles_df["id"].isin(trn_tiles["id"])].sample(frac=0.5, random_state=SEED)
-    tst_tiles = tiles_df[~tiles_df["id"].isin(trn_tiles["id"].to_list() + val_tiles["id"].to_list())]
-
-    logger.info(f"Found {len(trn_tiles)} tiles in train set, {len(val_tiles)} tiles in val set and {len(tst_tiles)} tiles in test set.")
-
-    dataset_tiles_dict = {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}
+    dataset_tiles_dict = {
+        key: tiles_df[tiles_df["dataset"] == key].drop(columns="dataset").reset_index(drop=True) 
+        for key in tiles_df["dataset"].unique()
+    }
     for dataset in dataset_tiles_dict.keys():
         # Split annotations
         dataset_annotations = clipped_annotations_df[clipped_annotations_df["image_id"].isin(dataset_tiles_dict[dataset]["id"])].copy()
