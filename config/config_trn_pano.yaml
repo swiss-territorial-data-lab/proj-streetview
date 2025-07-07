@@ -35,3 +35,21 @@ assess_detections.py:
       trn: trn_COCO_panoptic_detections.json
       val: val_COCO_panoptic_detections.json
       tst: tst_COCO_panoptic_detections.json
+
+visualize_results.py:
+  working_directory: outputs/OD
+  output_folder: images_for_visualization
+  image_folder: ../..
+  tagged_COCO_files:
+    trn: trn_COCO_panoptic_detections.json
+    val: val_COCO_panoptic_detections.json
+    tst: tst_COCO_panoptic_detections.json
+
+visualize_results_copy.py:
+  working_directory: outputs/OD
+  output_folder: images_for_visualization
+  image_folder: ../..
+  tagged_COCO_files:
+    trn: trn_COCO_panoptic_detections.json
+    val: val_COCO_panoptic_detections.json
+    tst: tst_COCO_panoptic_detections.json

@@ -76,7 +76,8 @@ def main(cfg_file_path):
             merged_labels.append(trans_dets.make_new_annotation(group, groupped_pairs_df, buffer=BUFFER))
 
         logger.info("Transforming labels to COCO format...")
-        subset_images_df = images_df[images_df.image_id.isin(subset_transformed_labels_gdf.image_id.unique())].copy()
+        subset_images_df = images_df[images_df.image_id.isin(subset_transformed_labels_gdf.image_id.unique())].rename(columns={'image_id': 'id'})
+        CATEGORIES['id'] = 0 # COCO usually starts with 1, but detectron2 starts with 0
         coco_dict = misc.assemble_coco_json(subset_images_df, merged_labels, CATEGORIES)
 
         # Save to coco json

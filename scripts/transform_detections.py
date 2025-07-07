@@ -189,7 +189,8 @@ def main(cfg_file_path):
         logger.info(f"{len(merged_detections)} detections are left after merging.")
 
         logger.info("Transforming detections to COCO format...")
-        subset_images_df = images_df[images_df.image_id.isin(subset_transformed_detections_gdf.image_id.unique())].copy()
+        subset_images_df = images_df[images_df.image_id.isin(subset_transformed_detections_gdf.image_id.unique())].rename(columns={'image_id': 'id'})
+        CATEGORIES[0]['id'] = 0 # COCO usually starts with 1, but detectron2 starts with 0
         coco_dict = misc.assemble_coco_json(subset_images_df, merged_detections, CATEGORIES)
 
         # Save to coco json
