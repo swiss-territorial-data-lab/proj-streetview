@@ -33,10 +33,6 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
         tagged_df_dict['FP'] = _dets_gdf
         return tagged_df_dict
     
-    # we add a id column to the labels dataset, which should not exist in detections too;
-    # this allows us to distinguish matching from non-matching detections
-    _labels_gdf.rename(columns={'id': 'label_id'}, inplace=True)
-    _dets_gdf['det_id'] = _dets_gdf.index
     # We need to keep both geometries after sjoin to check the best intersection over union
     _labels_gdf['label_geom'] = _labels_gdf.geometry
 
@@ -78,7 +74,9 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     tp_df = actual_matches_gdf[condition].reset_index(drop=True)
     assert len(tp_df) == len(actual_matches_gdf), "Unmatched class in the mono-class case"
     tp_df['tag'] = 'TP'
-    tp_df = tp_df.drop(columns=['index_labels', 'image_id_labels', 'geometry', 'label_geom']).rename(columns={'image_id_dets': 'image_id'})
+    tp_df = tp_df.drop(columns=['index_labels', 'image_id_labels', 'dataset_labels', 'area_labels', 'geometry', 'label_geom'], errors='ignore').rename(
+        columns={'image_id_dets': 'image_id', 'dataset_dets': 'dataset', 'area_dets': 'area'}
+    )
     tagged_df_dict['tp_df'] = pd.concat([tagged_df_dict['tp_df'], tp_df], ignore_index=True)
 
     matched_det_ids = tp_df['det_id'].unique().tolist()

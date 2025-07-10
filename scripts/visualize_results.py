@@ -40,11 +40,20 @@ annotations = []
 for dataset in TAGGED_COCO_FILES.keys():
     with open(TAGGED_COCO_FILES[dataset]) as fp:
         coco_data = json.load(fp)
-        images.extend(coco_data['images'])
-        annotations.extend(coco_data['annotations'])
+        if isinstance(coco_data, dict):
+            images.extend(coco_data['images'])
+            annotations.extend(coco_data['annotations'])
+        else:
+            annotations.extend(coco_data)
+            with open(cfg['coco_file_for_images']) as fp:
+                images.extend(json.load(fp)['images'])
+
+del coco_data
 
 images_df = DataFrame.from_records(images).drop_duplicates(subset=["file_name"])
 annotations_df = DataFrame.from_records(annotations)
+if 'id' not in annotations_df.columns:
+    annotations_df['id'] = [det_id if det_id == None else label_id for det_id, label_id in zip(annotations_df.det_id, annotations_df.label_id)]
 
 logger.info("Let's tag some sample images...")
 colors_dict = {
@@ -58,7 +67,7 @@ nbr_images = 50
 for coco_image in tqdm(images_df.sample(n=nbr_images, random_state=42).itertuples(), desc="Tagging images", total=nbr_images):
     output_filename = f'det_{coco_image.file_name.split("/")[-1]}'
     output_filename = output_filename.replace('tif', 'png')
-    im = cv2.imread(os.path.join(IMAGE_DIR, coco_image.file_name))
+    im = cv2.imread(coco_image.file_name if str(coco_image.file_name).startswith(IMAGE_DIR) else os.path.join(IMAGE_DIR, coco_image.file_name))
     corresponding_annotations = annotations_df[annotations_df["image_id"] == coco_image.id]
     if corresponding_annotations.empty:
         continue
@@ -72,8 +81,8 @@ for coco_image in tqdm(images_df.sample(n=nbr_images, random_state=42).itertuple
 
         text_position = {
             "trn": (bbox[0], bbox[1]-10),
-            "val": (bbox[0], bbox[1] + bbox[3] + 10),
-            "tst": (bbox[0], bbox[1]+10),
+            "val": (bbox[0], bbox[1] + 10),
+            "tst": (bbox[0], bbox[1] + bbox[3] + 10),
         }   
         cv2.putText(im, ' '.join([ann.dataset, str(ann.id), str(round(ann.score, 2))] + ([ann.tag] if 'tag' in corresponding_annotations.columns else [])), text_position[ann.dataset], cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
     filepath = os.path.join(OUTPUT_DIR, output_filename)

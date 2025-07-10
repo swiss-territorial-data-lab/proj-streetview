@@ -10,6 +10,7 @@ transform_detections.py:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
   score_threshold: 0.2
 
+
 clipped_labels_to_panoramic.py:
   working_directory: .
   output_folder: outputs/OD
@@ -36,20 +37,14 @@ assess_detections.py:
       val: val_COCO_panoptic_detections.json
       tst: tst_COCO_panoptic_detections.json
 
-visualize_results.py:
-  working_directory: outputs/OD
-  output_folder: images_for_visualization
-  image_folder: ../..
-  tagged_COCO_files:
-    trn: trn_COCO_panoptic_detections.json
-    val: val_COCO_panoptic_detections.json
-    tst: tst_COCO_panoptic_detections.json
 
-visualize_results_copy.py:
-  working_directory: outputs/OD
-  output_folder: images_for_visualization
-  image_folder: ../..
+visualize_results.py:
+  working_directory: .
+  output_folder: outputs/OD/panoptic_eval/images_for_visualization
+  image_folder: data/RCNE/panoramic_images
   tagged_COCO_files:
-    trn: trn_COCO_panoptic_detections.json
-    val: val_COCO_panoptic_detections.json
-    tst: tst_COCO_panoptic_detections.json
+    all:  outputs/OD/panoptic_eval/tagged_detections.json
+    # trn: trn_COCO_panoptic_detections.json
+    # val: val_COCO_panoptic_detections.json
+    # tst: tst_COCO_panoptic_detections.json
+  coco_file_for_images: data/RCNE/Object_Detect_GT/valid_ne_250626.json

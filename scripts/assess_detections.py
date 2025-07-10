@@ -59,6 +59,7 @@ def main(cfg_file_path):
 
     tiles_df_dict = {}
     labels_gdf_dict = {}
+    label_segm_df_dict = {}
     nbr_tiles = 0
     nbr_labels = 0
     for dataset, labels_file in GT_FILES.items():
@@ -73,10 +74,10 @@ def main(cfg_file_path):
             logger.warning(f"{no_geom_tmp.shape[0]} labels have no geometry in the {dataset} dataset with a max score of {round(no_geom_tmp['score'].max(), 2)}.")
 
         # Get annotation class
-        labels_df.rename(columns={'category_id': 'label_class'}, inplace=True)
+        labels_df.rename(columns={'category_id': 'label_class', 'id': 'label_id'}, inplace=True)
         labels_df = labels_df.merge(categories_info_df, on='label_class', how='left')
-        label_segm_df = labels_df[['id', 'segmentation', 'bbox']].rename(columns={
-            'id': 'label_id', 'segmentation': 'segmentation_labels', 'bbox': 'bbox_labels'
+        label_segm_df_dict[dataset] = labels_df[['label_id', 'segmentation', 'bbox']].rename(columns={
+            'segmentation': 'segmentation_labels', 'bbox': 'bbox_labels'
         })
         labels_df.drop(columns=['segmentation', 'iscrowd', 'supercategory', 'bbox'], inplace=True, errors='ignore')
 
@@ -304,8 +305,6 @@ def main(cfg_file_path):
             IOU_THRESHOLD
         )
 
-        tagged_dets_gdf_dict[dataset] = pd.concat(tagged_df_dict.values())
-
         tp_k, fp_k, fn_k, p_k, r_k, precision, recall, f1 = metrics.get_metrics(id_classes=id_classes, method=METHOD, **tagged_df_dict)
         global_metrics_dict['dataset'].append(dataset)
         global_metrics_dict['precision'].append(precision)
@@ -327,16 +326,29 @@ def main(cfg_file_path):
 
         metrics_cl_df_dict[dataset] = pd.DataFrame.from_records(metrics_dict_by_cl[dataset])
 
+        tagged_df_dict["fn_df"] = tagged_df_dict["fn_df"].merge(label_segm_df_dict[dataset], how='left', on='label_id').rename(
+            columns={'segmentation_labels': 'segmentation', 'bbox_labels': 'bbox'}
+        )
+        for key in ['tp_df', 'fp_df']:
+            tagged_df_dict[key] = tagged_df_dict[key].merge(det_segmentation_df, how='left', on='det_id').rename(
+                columns={'segmentation_dets': 'segmentation', 'bbox_dets': 'bbox'}
+            )
+        tagged_dets_gdf_dict[dataset] = pd.concat(tagged_df_dict.values())
+
     tagged_dets_df = pd.concat([tagged_dets_gdf_dict[x] for x in metrics_dict.keys()])
     tagged_dets_df['det_category'] = [
         categories_info_df.loc[categories_info_df.label_class==det_class+1, 'category'].iloc[0] 
         if not np.isnan(det_class) else None
         for det_class in tagged_dets_df.det_class
     ]
-    tagged_dets_df = tagged_dets_df.merge(label_segm_df, how='left', on='label_id').merge(det_segmentation_df, how='left', on='det_id')
 
+    cols = [
+        'dataset', 'tag', 
+        'label_id', 'label_class', 'category', 
+        'det_id', 'score', 'det_class', 'det_category', 'area', 'IOU', 'segmentation', 'bbox', 
+        'image_id'
+    ]
     file_to_write = os.path.join(OUTPUT_DIR, 'tagged_detections.json')
-    cols = ['geometry', 'score', 'tag', 'dataset', 'label_class', 'category', 'det_class', 'det_category']
     # Get the segmentation and bbox back
     with open(file_to_write, 'w') as fp:
         tagged_dets_df[cols].to_json(fp, orient='records')
