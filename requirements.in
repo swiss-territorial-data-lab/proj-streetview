@@ -1,13 +1,13 @@
+# general
 geopandas
 loguru
-numpy <=1.23.5
 opencv-python
-pillow==9.5.0
 plotly
+
+# detectron2
+numpy <=1.23.5
+pillow==9.5.0
 protobuf==4.25
-pygeohash
-scikit-learn
-ultralytics
 # cf. https://pytorch.org/get-started/locally/
 torch @ https://download.pytorch.org/whl/cu113/torch-1.10.2%2Bcu113-cp38-cp38-linux_x86_64.whl
 torchvision @ https://download.pytorch.org/whl/cu113/torchvision-0.11.3%2Bcu113-cp38-cp38-linux_x86_64.whl

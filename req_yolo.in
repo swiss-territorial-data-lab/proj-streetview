@@ -1,0 +1,9 @@
+# general
+geopandas
+loguru
+opencv-python
+plotly
+
+# YOLO
+ultralytics
+wandb
