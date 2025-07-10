@@ -32,7 +32,9 @@ IMAGE_DIR = cfg['image_folder']
 TAGGED_COCO_FILES = cfg['tagged_COCO_files']
 
 os.chdir(WORKING_DIR)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+if os.path.exists(OUTPUT_DIR):
+    os.system(f"rm -rf {OUTPUT_DIR}")
+os.makedirs(OUTPUT_DIR)
 
 logger.info("Registering COCO datasets...")
 images = []
@@ -50,7 +52,7 @@ for dataset in TAGGED_COCO_FILES.keys():
 
 del coco_data
 
-images_df = DataFrame.from_records(images).drop_duplicates(subset=["file_name"])
+images_df = DataFrame.from_records(images).drop_duplicates(subset=["file_name"]).sample(frac=1, random_state=42)    # sample = shuffle rows
 annotations_df = DataFrame.from_records(annotations)
 if 'id' not in annotations_df.columns:
     annotations_df['id'] = [det_id if det_id == None else label_id for det_id, label_id in zip(annotations_df.det_id, annotations_df.label_id)]
@@ -63,14 +65,23 @@ colors_dict = {
 }
 # https://stackoverflow.com/questions/50805634/how-to-create-mask-images-from-coco-dataset
 # https://opencv.org/blog/image-annotation-using-opencv/
-nbr_images = 50
-for coco_image in tqdm(images_df.sample(n=nbr_images, random_state=42).itertuples(), desc="Tagging images", total=nbr_images):
-    output_filename = f'det_{coco_image.file_name.split("/")[-1]}'
-    output_filename = output_filename.replace('tif', 'png')
-    im = cv2.imread(coco_image.file_name if str(coco_image.file_name).startswith(IMAGE_DIR) else os.path.join(IMAGE_DIR, coco_image.file_name))
-    corresponding_annotations = annotations_df[annotations_df["image_id"] == coco_image.id]
+nbr_images_per_dataset = 50
+images_pro_dataset = {key: 0 for key in annotations_df["dataset"].unique()}
+nbr_images = nbr_images_per_dataset*len(images_pro_dataset.keys())
+for coco_image in tqdm(images_df.itertuples(), desc="Tagging images"):
+    if all([im_nbr >= 50 for im_nbr in images_pro_dataset.values()]):
+        break
+
+    corresponding_annotations = annotations_df[annotations_df["image_id"] == coco_image.id].reset_index(drop=True)
     if corresponding_annotations.empty:
         continue
+    dataset = corresponding_annotations.loc[0, 'dataset']
+    if images_pro_dataset[dataset] >= 50:
+        continue
+    images_pro_dataset[dataset] += 1
+
+    output_filename = f'{dataset}_det_{coco_image.file_name.split("/")[-1]}'.replace('tif', 'png')
+    im = cv2.imread(coco_image.file_name if str(coco_image.file_name).startswith(IMAGE_DIR) else os.path.join(IMAGE_DIR, coco_image.file_name))
     for ann in corresponding_annotations.itertuples():
         if 'tag' in corresponding_annotations.columns:
             color = colors_dict[ann.tag]
