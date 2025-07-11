@@ -13,19 +13,18 @@ redistribute_images.py:
     tst: COCO_datasets/tst.json
   overwrite: False
 
-train_yolo_model.py:
-  debug_mode: False
+tune_yolo_model.py:
   working_directory: outputs
-  output_folder: yolo
-  image_folder: outputs/detectron2/images
-  sample_tagged_img_subfolder: sample_training_images
+  # output_folder: yolov11
+  # sample_tagged_img_subfolder: sample_training_images
+  yolo_file: ../config/yolo/yolo_dataset.yaml
+  model: yolo11n-seg.pt
   resume_training: False
-  COCO_files:
-    trn: COCO_trn.json
-    val: COCO_val.json
-    tst: COCO_tst.json
-  model: yolo11m-seg.pt
-  training_parameters:
-    epochs: 1000
-    batch_size: 28
+  params:
+    # https://medium.com/internet-of-technology/yolov8-best-practices-for-training-cdb6eacf7e4f
+    batch: 1
+    epochs: 100
+    # lr0: 0.01
+    # lrf: 0.01
+    patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
   
