@@ -138,6 +138,8 @@ pydantic==2.11.7
     # via wandb
 pydantic-core==2.33.2
     # via pydantic
+pygeohash==3.1.3
+    # via -r req_yolo.in
 pyogrio==0.11.0
     # via geopandas
 pyparsing==3.2.3

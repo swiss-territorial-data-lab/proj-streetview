@@ -115,7 +115,7 @@ def main(cfg_file_path):
     cfg.merge_from_file(DETECTRON2_CFG_FILE)
     cfg.OUTPUT_DIR = LOG_SUBDIR
     
-    num_classes = get_number_of_classes(COCO_FILES_DICT)
+    num_classes = get_number_of_classes(COCO_TRN_FILE)
 
     cfg.MODEL.ROI_HEADS.NUM_CLASSES=num_classes
 

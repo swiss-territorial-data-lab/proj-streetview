@@ -118,7 +118,7 @@ def geohash(row):
     return out
 
 
-def get_number_of_classes(coco_files_dict):
+def get_number_of_classes(coco_file):
     """Read the number of classes from the tileset COCO file.
 
     Args:
@@ -128,12 +128,12 @@ def get_number_of_classes(coco_files_dict):
         num_classes (int): number of classes in the dataset
     """
 
-    file_content = open(next(iter(coco_files_dict.values())))
+    file_content = open(coco_file)
     coco_json = json.load(file_content)
     num_classes = len(coco_json["categories"])
     file_content.close()
     if num_classes == 0:
-        logger.critical('No defined class in the 1st COCO file.')
+        logger.critical('No defined class in the training COCO file.')
         sys.exit(0)
 
     logger.info(f"Working with {num_classes} class{'es' if num_classes > 1 else ''}.")

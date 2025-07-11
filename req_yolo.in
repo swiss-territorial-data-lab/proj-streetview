@@ -2,6 +2,7 @@
 geopandas
 loguru
 opencv-python
+pygeohash
 plotly
 
 # YOLO

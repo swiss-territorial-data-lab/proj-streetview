@@ -1,0 +1,31 @@
+coco_to_yolo.py:
+  working_directory: outputs
+  input_folder: COCO_datasets
+  output_folder: YOLO_datasets
+
+redistribute_images.py:
+  working_directory: outputs
+  image_folder: COCO_datasets
+  output_folder: YOLO_datasets
+  COCO_files:
+    trn: COCO_datasets/trn.json
+    val: COCO_datasets/val.json
+    tst: COCO_datasets/tst.json
+  overwrite: False
+
+train_yolo_model.py:
+  debug_mode: False
+  working_directory: outputs
+  output_folder: yolo
+  image_folder: outputs/detectron2/images
+  sample_tagged_img_subfolder: sample_training_images
+  resume_training: False
+  COCO_files:
+    trn: COCO_trn.json
+    val: COCO_val.json
+    tst: COCO_tst.json
+  model: yolo11m-seg.pt
+  training_parameters:
+    epochs: 1000
+    batch_size: 28
+  

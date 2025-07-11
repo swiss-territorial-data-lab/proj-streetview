@@ -64,6 +64,7 @@ def main(cfg_file_path):
     COCO_FILES_DICT = cfg['COCO_files']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     SEED = cfg['seed']
+    PREPARE_YOLO = cfg['preapre_yolo']
     OVERWRITE_IMAGES = cfg['overwrite_images']
 
     OVERLAP_X = 224
@@ -76,6 +77,10 @@ def main(cfg_file_path):
     OUTPUT_DIR_IMAGES = "images"
     os.makedirs(os.path.join(OUTPUT_DIR, OUTPUT_DIR_IMAGES), exist_ok=True)
     written_files = []
+
+    if PREPARE_YOLO:
+        YOLO_DIR = 'COCO_datasets'
+        os.makedirs(YOLO_DIR, exist_ok=True)
 
     # Read full COCO dataset
     images_and_annotations_df = pd.DataFrame()
@@ -124,13 +129,19 @@ def main(cfg_file_path):
         for i in range(PADDING_Y, h - PADDING_Y, TILE_SIZE - OVERLAP_Y):
             for j in range(0, w - OVERLAP_X, TILE_SIZE - OVERLAP_X):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
+                new_filepath = os.path.join(OUTPUT_DIR, new_filename)
                 tile = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
                 assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, "Tile shape not 512 x 512 px"
                 tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset})
                 image_id += 1
 
-                if not os.path.exists(os.path.join(OUTPUT_DIR, new_filename)) or OVERWRITE_IMAGES:
-                    cv2.imwrite(os.path.join(OUTPUT_DIR, new_filename), tile)
+                if not os.path.exists(new_filepath) or OVERWRITE_IMAGES:
+                    cv2.imwrite(new_filepath, tile)
+                if PREPARE_YOLO:
+                    dest_path = os.path.join(YOLO_DIR, os.path.basename(new_filepath))
+                    if os.path.exists(dest_path):
+                        os.remove(dest_path)
+                    os.link(new_filepath, dest_path)
 
         all_tiles_df = pd.DataFrame(tiles)
 
@@ -170,10 +181,10 @@ def main(cfg_file_path):
                     continue
 
                 annotations.append(dict(
-                    id=annotation_id,
+                    id=int(annotation_id),
                     image_id=tile["id"],
-                    category_id=1,  # Currently, single class
-                    iscrowd=ann["iscrowd"],
+                    category_id=int(1),  # Currently, single class
+                    iscrowd=int(ann["iscrowd"]),
                     bbox=[x1, y1, new_width, new_height],
                     area=compute_polygon_area([coords]),
                     segmentation=[coords]
@@ -236,6 +247,7 @@ def main(cfg_file_path):
     for dataset in dataset_tiles_dict.keys():
         # Split annotations
         dataset_annotations = clipped_annotations_df[clipped_annotations_df["image_id"].isin(dataset_tiles_dict[dataset]["id"])].copy()
+        dataset_annotations = dataset_annotations.astype({"id": int, "category_id": int, "iscrowd": int}, copy=False)
         logger.info(f"Found {len(dataset_annotations)} annotations in the {dataset} dataset.")
 
         # Create COCO dicts
@@ -247,10 +259,19 @@ def main(cfg_file_path):
             json.dump(coco_dict, fp, indent=4)
         written_files.append(os.path.join(OUTPUT_DIR, f"COCO_{dataset}.json"))
 
+        if PREPARE_YOLO:
+            logger.info(f"Creating corresponding COCO file for the annotation transformation to YOLO.")
+            dataset_tiles_dict[dataset]["file_name"] = [os.path.basename(f) for f in dataset_tiles_dict[dataset]["file_name"]]
+            coco_dict = assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
+
+            with open(os.path.join(YOLO_DIR, dataset + '.json'), 'w') as fp:
+                json.dump(coco_dict, fp, indent=4)
+            written_files.append(os.path.join(YOLO_DIR, dataset + '.json'))
+
     logger.success("Done! The following files have been created:")
     for file in written_files:
         logger.success(file)
-    logger.success(f"In addition, some tiles were written in {os.path.join(OUTPUT_DIR, OUTPUT_DIR_IMAGES)}.")
+    logger.success(f"In addition, some tiles were written in {OUTPUT_DIR}.")
 
     logger.info(f"Done in {round(time() - tic, 2)} seconds.")
 
