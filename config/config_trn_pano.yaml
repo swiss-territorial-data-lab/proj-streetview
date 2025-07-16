@@ -1,11 +1,11 @@
 transform_detections.py:
   working_directory: .
-  output_folder: outputs/OD
+  output_folder: outputs/detectron2
   image_dir: data/RCNE/panoramic_images
   detections_files:
-    trn: outputs/OD/trn_detections_at_0dot05_threshold.json
-    val: outputs/OD/val_detections_at_0dot05_threshold.json
-    tst: outputs/OD/tst_detections_at_0dot05_threshold.json
+    trn: outputs/detectron2/trn_detections_at_0dot05_threshold.json
+    val: outputs/detectron2/val_detections_at_0dot05_threshold.json
+    tst: outputs/detectron2/tst_detections_at_0dot05_threshold.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
   score_threshold: 0.2
@@ -13,18 +13,18 @@ transform_detections.py:
 
 clipped_labels_to_panoramic.py:
   working_directory: .
-  output_folder: outputs/OD
+  output_folder: outputs/detectron2
   image_dir: data/RCNE/panoramic_images
   labels_files:
-    trn: outputs/OD/COCO_trn.json
-    val: outputs/OD/COCO_val.json
-    tst: outputs/OD/COCO_tst.json
+    trn: outputs/detectron2/COCO_trn.json
+    val: outputs/detectron2/COCO_val.json
+    tst: outputs/detectron2/COCO_tst.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
 
 
 assess_detections.py:
-  working_directory: outputs/OD
+  working_directory: outputs/detectron2
   output_folder: panoptic_eval
   metrics_method: micro-average
   datasets:
@@ -40,10 +40,10 @@ assess_detections.py:
 
 visualize_results.py:
   working_directory: .
-  output_folder: outputs/OD/panoptic_eval/images_for_visualization
+  output_folder: outputs/detectron2/panoptic_eval/images_for_visualization
   image_folder: data/RCNE/panoramic_images
   tagged_COCO_files:
-    all:  outputs/OD/panoptic_eval/tagged_detections.json
+    all:  outputs/detectron2/panoptic_eval/tagged_detections.json
     # trn: trn_COCO_panoptic_detections.json
     # val: val_COCO_panoptic_detections.json
     # tst: tst_COCO_panoptic_detections.json

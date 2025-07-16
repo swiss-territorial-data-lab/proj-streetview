@@ -17,16 +17,16 @@ from utils.misc import assemble_coco_json, format_logger, segmentation_to_polygo
 
 logger = format_logger(logger)
 
-def check_bbox_plausibility(new_origin, length, tile_size=512):
+def check_bbox_plausibility(new_origin, length):
     if new_origin < 0:
         length = length + new_origin
         new_origin = 0
-        if length > tile_size:
-            length = tile_size
-    elif new_origin + length > tile_size:
-        length = tile_size - new_origin
+        if length > TILE_SIZE:
+            length = TILE_SIZE
+    elif new_origin + length > TILE_SIZE:
+        length = TILE_SIZE - new_origin
 
-    assert all(value <= tile_size and value >= 0 for value in [new_origin, length]), "Annotation outside tile"
+    assert all(value <= TILE_SIZE and value >= 0 for value in [new_origin, length]), "Annotation outside tile"
 
     return new_origin, length
 
@@ -37,8 +37,8 @@ def compute_polygon_area(segm):
     return poly.area
 
 
-def get_new_coordinate(initial_coor, tile_min, tile_size=512):
-    return max(min(initial_coor-tile_min, tile_size), 0)
+def get_new_coordinate(initial_coor, tile_min):
+    return max(min(initial_coor-tile_min, TILE_SIZE), 0)
 
 
 def remove_discarded_tiles(all_tiles_df, selectd_tiles, output_dir):
@@ -66,8 +66,8 @@ def main(cfg_file_path):
     SEED = cfg['seed']
     OVERWRITE_IMAGES = cfg['overwrite_images']
 
-    OVERLAP_X = 224
-    OVERLAP_Y = 224
+    OVERLAP_X = 135
+    OVERLAP_Y = 114
     PADDING_Y = 736
     DEBUG = False
 
@@ -125,7 +125,7 @@ def main(cfg_file_path):
             for j in range(0, w - OVERLAP_X, TILE_SIZE - OVERLAP_X):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                 tile = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
-                assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, "Tile shape not 512 x 512 px"
+                assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, f"Tile shape not {TILE_SIZE} x {TILE_SIZE} px"
                 tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset})
                 image_id += 1
 
@@ -152,7 +152,7 @@ def main(cfg_file_path):
                 # else, scale coordinates and clip if necessary
                 # bbox
                 x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
-                y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)                
+                y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
 
                 # segmentation
                 old_coords = ann["segmentation"][0]
@@ -166,7 +166,7 @@ def main(cfg_file_path):
                     new_coords_tuples.append((new_x, new_y))
                     coords.extend([new_x, new_y])
                 assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
-                if all(value[0] <=10 or value[0] >= 500 for value in new_coords_tuples) or all(value[1] <=10 or value[1] >= 500 for value in new_coords_tuples):
+                if all(value[0] <= TILE_SIZE * 0.02 or value[0] >= TILE_SIZE * 0.98 for value in new_coords_tuples) or all(value[1] <=10 or value[1] >= 500 for value in new_coords_tuples):
                     continue
 
                 annotations.append(dict(
