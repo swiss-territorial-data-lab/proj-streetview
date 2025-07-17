@@ -1,16 +1,16 @@
 coco_to_yolo.py:
-  working_directory: outputs
-  input_folder: COCO_datasets
-  output_folder: YOLO_datasets
+  working_directory: .
+  input_folder: outputs/COCO_datasets
+  output_folder: datasets/YOLO_datasets
 
 redistribute_images.py:
-  working_directory: outputs
-  image_folder: COCO_datasets
-  output_folder: YOLO_datasets
+  working_directory: outputs/COCO_datasets
+  image_folder: .
+  output_folder: ../../datasets/YOLO_datasets/images
   COCO_files:
-    trn: COCO_datasets/trn.json
-    val: COCO_datasets/val.json
-    tst: COCO_datasets/tst.json
+    trn: trn.json
+    val: val.json
+    tst: tst.json
   overwrite: False
 
 tune_yolo_model.py:
@@ -21,10 +21,17 @@ tune_yolo_model.py:
   model: yolo11n-seg.pt
   resume_training: False
   params:
-    # https://medium.com/internet-of-technology/yolov8-best-practices-for-training-cdb6eacf7e4f
-    batch: 1
+    # https://docs.ultralytics.com/usage/cfg/#train-settings
     epochs: 100
     # lr0: 0.01
     # lrf: 0.01
     patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
   
+tune_yolo_w_ray.py:
+  working_directory: outputs
+  yolo_file: /home/gsalamin/Documents/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml
+
+plot_best.py:
+  working_directory: outputs
+  ray_results_dir: /home/gsalamin/ray_results
+  output_folder: yolo_results/plots

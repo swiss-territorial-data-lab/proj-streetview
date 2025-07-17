@@ -9,7 +9,7 @@ from yaml import load, FullLoader
 
 from ultralytics import YOLO
 
-from utils.constants import TILE_SIZE
+from utils.constants import TILE_SIZE, YOLO_PARAMETERS
 from utils.misc import format_logger
 
 import torch
@@ -60,8 +60,9 @@ search_space = {
 
 model.tune(
     data=YOLO_FILE,
-    iterations=100,
+    iterations=50,
     space=search_space,
     imgsz=TILE_SIZE,
-    **PARAMETERS
+    **PARAMETERS,
+    **YOLO_PARAMETERS
 )

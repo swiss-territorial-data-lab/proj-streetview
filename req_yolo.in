@@ -6,5 +6,8 @@ pygeohash
 plotly
 
 # YOLO
+ray
+ray[tune]
+tensorboard
 ultralytics
 wandb

@@ -31,7 +31,7 @@ if os.path.exists(OUTPUT_DIR):
     os.system(f"rm -r {OUTPUT_DIR}")
 
 # cf. https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/converter.py#L228
-convert_coco(labels_dir=INPUT_DIR, save_dir=OUTPUT_DIR)
+convert_coco(labels_dir=INPUT_DIR, save_dir=OUTPUT_DIR, use_segment=True)
 
 logger.success(f"Done! YOLO dataset was created in {os.path.join(WORKING_DIR, OUTPUT_DIR)}.")
 logger.info(f"Done in {round(time() - tic, 2)} seconds.")
