@@ -9,7 +9,7 @@ import ray
 from ray import tune                                       # Ray Tune pour optimisation d’hyperparamètres
 from ultralytics import YOLO
 
-from utils.constants import TILE_SIZE
+from utils.constants import YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 
 logger = format_logger(logger)
@@ -32,15 +32,14 @@ def train_yolo(config):
 
     #  Lance l’entraînement avec les hyperparamètres fournis
     _ = model.train(
-        data=YOLO_FILE,           # Fichier YAML du dataset
-        epochs=25,                     # Nombre d’époques
+        epochs=100,                     # Nombre d’époques
         lr0=config["lr0"],             # Taux d’apprentissage initial
         batch=config["batch"],         # Taille de batch
         optimizer=config["optimizer"], # Optimiseur (SGD, Adam, etc.)
         patience=config["patience"],
-        imgsz=TILE_SIZE,
         device=device,
         workers=0                      # Pas de workers multi-thread pour éviter bugs Ray
+        **YOLO_TRAINING_PARAMS
     )
 
 logger.info('Starting...')
@@ -74,13 +73,12 @@ print(ray.cluster_resources())
 
 # 離 Espace de recherche (grille simple ici, peut être étendu)
 search_space = {
-    "lr0": tune.grid_search([0.005, 0.1, 0.005]),  # Taux d’apprentissage initial
-    "batch": tune.grid_search([5, 20]),            # Taille de batch
-    "optimizer": tune.grid_search(["SGD", "Adam"]), # Optimiseur
-    "model": tune.grid_search([
-        "yolo11n-seg", "yolo11s-seg", "yolov8n-seg", "yolov8s-seg"
-    ]),  # Modèles légers/rapides
-    'patience': tune.grid_search([25, 100])
+    "model": tune.grid_search(["yolo11m-seg", "yolo11s-seg"]),
+    "lr0": tune.grid_search([0.001, 0.005, 0.01, 0.05]),
+    "lrf": tune.grid_search([0.001, 0.01, 0.05]),
+    "batch": tune.grid_search([5, 10, 15, 20, 25]),
+    "optimizer": tune.grid_search(["SGD", "Adam"]),
+    'patience': tune.grid_search([10, 25, 50]),
 }
 
 # ⚙️ Lance les expériences Ray Tune

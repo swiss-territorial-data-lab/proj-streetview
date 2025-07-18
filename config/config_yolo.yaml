@@ -1,3 +1,14 @@
+prepare_coco_data.py:
+  working_directory: outputs
+  output_dir: detectron2
+  image_dir: ../data/RCNE/panoramic_images/
+  COCO_files:
+    RCNE: ../data/RCNE/Object_Detect_GT/valid_ne_250626.json
+  ratio_wo_annotations: 0
+  seed: 42
+  preapre_yolo: True
+  overwrite_images: False
+
 coco_to_yolo.py:
   working_directory: .
   input_folder: outputs/COCO_datasets
@@ -15,23 +26,35 @@ redistribute_images.py:
 
 tune_yolo_model.py:
   working_directory: outputs
-  # output_folder: yolov11
-  # sample_tagged_img_subfolder: sample_training_images
-  yolo_file: ../config/yolo/yolo_dataset.yaml
-  model: yolo11n-seg.pt
-  resume_training: False
+  project: yolo/tune
+  model: yolo11m-seg.pt
   params:
     # https://docs.ultralytics.com/usage/cfg/#train-settings
     epochs: 100
-    # lr0: 0.01
-    # lrf: 0.01
     patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
   
 tune_yolo_w_ray.py:
   working_directory: outputs
-  yolo_file: /home/gsalamin/Documents/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml
+  output_folder: ray_tuning
 
 plot_best.py:
   working_directory: outputs
   ray_results_dir: /home/gsalamin/ray_results
-  output_folder: yolo_results/plots
+
+train_yolo.py:
+  working_directory: outputs
+  project: yolo/train
+  name: run
+  model: yolo11s-seg.pt
+  best_parameters_path: /home/gsalamin/ray_results/train_yolo_2025-07-15_14-14-00/train_yolo_f3a76_00007_7_batch=20,lr0=0.0050,model=yolo11s-seg,optimizer=SGD,patience=25_2025-07-15_14-14-01/
+  resume_training: False
+
+infer_with_yolo.py:
+  working_directory: outputs
+  project: yolo/infer
+  model: yolo/train/run00/weights/best.pt
+  dataset_images_folder:
+    trn: datasets/RCNE_datasets_512/images/trn
+    val: datasets/RCNE_datasets_512/images/val
+    tst: datasets/RCNE_datasets_512/images/tst
+  image_info: ../data/RCNE/Object_Detect_GT/ne_COCO.json

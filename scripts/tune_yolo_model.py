@@ -9,7 +9,7 @@ from yaml import load, FullLoader
 
 from ultralytics import YOLO
 
-from utils.constants import TILE_SIZE, YOLO_PARAMETERS
+from utils.constants import YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 
 import torch
@@ -32,19 +32,13 @@ with open(args.config_file) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
 WORKING_DIR = cfg['working_directory']
-# OUTPUT_DIR = cfg['output_folder']
-# SAMPLE_TAGGED_IMG_SUBDIR = os.path.join(OUTPUT_DIR, cfg['sample_tagged_img_subfolder'])
+PROJECT = cfg['project']
 
 YOLO_FILE = cfg['yolo_file']
-MODEL = cfg['model']    # yolo11m-seg.pt
-# RESUME_TRAINING = False
+MODEL = cfg['model']
 PARAMETERS = cfg['params']
 
 os.chdir(WORKING_DIR)
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
-# os.remove(SAMPLE_TAGGED_IMG_SUBDIR)
-# os.makedirs(SAMPLE_TAGGED_IMG_SUBDIR)
-
 
 print(f"Available GPUs: {torch.cuda.device_count()}")
 
@@ -59,10 +53,9 @@ search_space = {
 }
 
 model.tune(
-    data=YOLO_FILE,
     iterations=50,
     space=search_space,
-    imgsz=TILE_SIZE,
+    project=PROJECT,
     **PARAMETERS,
-    **YOLO_PARAMETERS
+    **YOLO_TRAINING_PARAMS
 )

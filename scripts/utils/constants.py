@@ -2,7 +2,9 @@ DONE_MSG = "...done."
 SCATTER_PLOT_MODE = 'markers+lines'
 CATEGORIES = [{'id': 1, 'name': 'manhole', 'supercategory': 'round plate'}]
 TILE_SIZE = 512
-YOLO_PARAMETERS = {
-    'conf': 0.05, 
-    'batch': 25,
+YOLO_TRAINING_PARAMS = {
+    'data': '/home/gsalamin/Documents/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml',
+    'imgsz': TILE_SIZE,
+    'multi_scale': True,
+    'translate': 0,
 }
