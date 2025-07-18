@@ -31,10 +31,8 @@ with open(args.config_file) as fp:
 # Define base directory
 WORKING_DIR = cfg['working_directory']
 RAY_RESULTS_DIR = cfg['ray_results_dir']
-OUTPUT_DIR = cfg['output_folder']
 
 os.chdir(WORKING_DIR)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # List all sub / subdirectories (each corresponding to a different trial)
 train_dirs = []

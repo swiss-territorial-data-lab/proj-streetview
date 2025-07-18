@@ -7,7 +7,7 @@ from yaml import load, FullLoader
 
 from ultralytics import YOLO
 
-from utils.constants import YOLO_PARAMETERS, YOLO_TRAINING_OPTIONS
+from utils.constants import YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 
 import torch
@@ -56,6 +56,6 @@ model.train(
     save_period=5,
     plots=True,
     resume=RESUME_TRAINING
-    **YOLO_TRAINING_OPTIONS
+    **YOLO_TRAINING_PARAMS
     **best_parameters
     )

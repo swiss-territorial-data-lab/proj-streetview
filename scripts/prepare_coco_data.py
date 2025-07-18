@@ -1,6 +1,7 @@
 import cv2
 import json
 import os
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -9,8 +10,6 @@ from yaml import load, FullLoader
 
 import pandas as pd
 from math import ceil
-
-from detectron2.data.datasets import load_coco_json, register_coco_instances
 
 from utils.constants import CATEGORIES, TILE_SIZE
 from utils.misc import assemble_coco_json, format_logger, segmentation_to_polygon
@@ -41,11 +40,16 @@ def get_new_coordinate(initial_coor, tile_min, tile_size=512):
     return max(min(initial_coor-tile_min, tile_size), 0)
 
 
-def remove_discarded_tiles(all_tiles_df, selectd_tiles, output_dir):
-    for tile in all_tiles_df.file_name.unique():
-        if tile not in selectd_tiles:
-            os.remove(os.path.join(output_dir, tile))
+def remove_discarded_tiles(all_tiles_df, selected_tiles, directories_list):
+    for output_dir in directories_list:
+        for tile in all_tiles_df.file_name.unique():
+            if tile not in selected_tiles:
+                os.remove(os.path.join(output_dir, os.path.basename(tile)))
 
+def write_image(image, image_name, dir_name, overwrite):
+    filepath = os.path.join(dir_name, image_name)
+    if not os.path.exists(filepath) or overwrite:
+        cv2.imwrite(filepath, image)
 
 def main(cfg_file_path):
     
@@ -58,13 +62,13 @@ def main(cfg_file_path):
         cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
     WORKING_DIR = cfg['working_directory']
-    OUTPUT_DIR = cfg['output_dir']
     IMAGE_DIR = cfg['image_dir']
 
     COCO_FILES_DICT = cfg['COCO_files']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     SEED = cfg['seed']
-    PREPARE_YOLO = cfg['preapre_yolo']
+    PREPARE_COCO = cfg['prepare_coco'] if 'prepare_coco' in cfg.keys() else False
+    PREPARE_YOLO = cfg['prepare_yolo'] if 'prepare_yolo' in cfg.keys() else False
     OVERWRITE_IMAGES = cfg['overwrite_images']
 
     OVERLAP_X = 224
@@ -72,23 +76,41 @@ def main(cfg_file_path):
     PADDING_Y = 736
     DEBUG = False
 
+    if not PREPARE_COCO and not PREPARE_YOLO:
+        logger.critical("At least one of PREPARE_COCO or PREPARE_YOLO must be True.")
+        sys.exit(1)
+
     os.chdir(WORKING_DIR)
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    OUTPUT_DIR_IMAGES = "images"
-    os.makedirs(os.path.join(OUTPUT_DIR, OUTPUT_DIR_IMAGES), exist_ok=True)
     written_files = []
 
+    OUTPUT_DIRS = []
+    OUTPUT_DIR_IMAGES = "images"
+    if PREPARE_COCO:
+        COCO_DIR = cfg['coco_dir']
+        os.makedirs(COCO_DIR, exist_ok=True)
+        # Subfolder for COCO images
+        os.makedirs(os.path.join(COCO_DIR, OUTPUT_DIR_IMAGES), exist_ok=True)
+        OUTPUT_DIRS.append(os.path.join(COCO_DIR, OUTPUT_DIR_IMAGES))
     if PREPARE_YOLO:
-        YOLO_DIR = 'COCO_datasets'
+        # YOLO conversion requires tiles to be saved in the same folder as COCO files
+        YOLO_DIR = cfg['yolo_dir']
         os.makedirs(YOLO_DIR, exist_ok=True)
+        OUTPUT_DIRS.append(os.path.join(YOLO_DIR))
 
     # Read full COCO dataset
     images_and_annotations_df = pd.DataFrame()
     for dataset_key, coco_file in COCO_FILES_DICT.items():
-        register_coco_instances(dataset_key, {}, coco_file, "")
+        with open(coco_file, 'r') as fp:
+            coco_data = json.load(fp)
+            
+        images_df = pd.DataFrame.from_records(coco_data['images'])
+        if 'image_id' not in images_df.columns:
+            images_df.rename(columns={'id': 'image_id'}, inplace=True)
+        images_df["annotations"] = [[] for _ in range(len(images_df))]
+        for annotation in coco_data['annotations']:
+            images_df.loc[images_df['image_id'] == annotation['image_id'], 'annotations'].iloc[0].append(annotation)
 
-        coco_data = load_coco_json(coco_file, IMAGE_DIR, dataset_key)
-        images_and_annotations_df = pd.concat((images_and_annotations_df, pd.DataFrame(coco_data)), ignore_index=True)
+        images_and_annotations_df = pd.concat((images_and_annotations_df, pd.DataFrame(images_df)), ignore_index=True)
 
     if DEBUG:
         logger.info("Debug mode activated. Only first 100 images are processed.")
@@ -118,7 +140,7 @@ def main(cfg_file_path):
     tot_tiles_without_ann = 0
     for image in tqdm(images_and_annotations_df.itertuples(), desc="Clipping images and annotations into tiles", total=len(images_and_annotations_df)):
 
-        img = cv2.imread(image.file_name)
+        img = cv2.imread(os.path.join(IMAGE_DIR, image.file_name))
         if img is None:
             logger.error(f"Image {image.file_name} not found")
             continue
@@ -129,19 +151,23 @@ def main(cfg_file_path):
         for i in range(PADDING_Y, h - PADDING_Y, TILE_SIZE - OVERLAP_Y):
             for j in range(0, w - OVERLAP_X, TILE_SIZE - OVERLAP_X):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
-                new_filepath = os.path.join(OUTPUT_DIR, new_filename)
                 tile = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
                 assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, "Tile shape not 512 x 512 px"
                 tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset})
                 image_id += 1
 
-                if not os.path.exists(new_filepath) or OVERWRITE_IMAGES:
-                    cv2.imwrite(new_filepath, tile)
-                if PREPARE_YOLO:
-                    dest_path = os.path.join(YOLO_DIR, os.path.basename(new_filepath))
-                    if os.path.exists(dest_path):
-                        os.remove(dest_path)
-                    os.link(new_filepath, dest_path)
+                if PREPARE_COCO and PREPARE_YOLO:
+                    write_image(tile, new_filename, COCO_DIR, OVERWRITE_IMAGES)
+
+                    dest_path = os.path.join(YOLO_DIR, os.path.basename(new_filename))
+                    if not os.path.exists(dest_path):
+                        os.link(new_filename, dest_path)
+
+                elif PREPARE_COCO:
+                    write_image(tile, new_filename, COCO_DIR, OVERWRITE_IMAGES)
+
+                elif PREPARE_YOLO:
+                    write_image(tile, os.path.basename(new_filename), YOLO_DIR, OVERWRITE_IMAGES)
 
         all_tiles_df = pd.DataFrame(tiles)
 
@@ -197,7 +223,7 @@ def main(cfg_file_path):
                 tiles_df = pd.concat((tiles_df, all_tiles_df.sample(n=2, random_state=SEED)), ignore_index=True)
                 tot_tiles_without_ann += 2
 
-                remove_discarded_tiles(all_tiles_df, all_tiles_df.sample(n=2, random_state=SEED).file_name.unique(), OUTPUT_DIR)
+                remove_discarded_tiles(all_tiles_df, all_tiles_df.sample(n=2, random_state=SEED).file_name.unique(), OUTPUT_DIRS)
             
         else: 
             tile_annotations_df = pd.DataFrame(
@@ -222,13 +248,13 @@ def main(cfg_file_path):
                 tiles_df = pd.concat((tiles_df, tiles_with_ann_df, tiles_without_ann_df), ignore_index=True)
 
                 remove_discarded_tiles(
-                    all_tiles_df[~condition_annotations], tiles_without_ann_df.file_name.unique(), OUTPUT_DIR
+                    all_tiles_df[~condition_annotations], tiles_without_ann_df.file_name.unique(), OUTPUT_DIRS
                 )
 
             else:
                 tiles_df = pd.concat((tiles_df, tiles_with_ann_df), ignore_index=True)
 
-                remove_discarded_tiles(all_tiles_df, tiles_with_ann_df.file_name.unique(), OUTPUT_DIR)
+                remove_discarded_tiles(all_tiles_df, tiles_with_ann_df.file_name.unique(), OUTPUT_DIRS)
 
             del tile_annotations_df
                 
@@ -253,14 +279,14 @@ def main(cfg_file_path):
         # Create COCO dicts
         coco_dict = assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
 
-        # Create COCO files
-        logger.info(f"Creating COCO file for {dataset} set.")
-        with open(os.path.join(OUTPUT_DIR, f"COCO_{dataset}.json"), "w") as fp:
-            json.dump(coco_dict, fp, indent=4)
-        written_files.append(os.path.join(OUTPUT_DIR, f"COCO_{dataset}.json"))
+        if PREPARE_COCO:
+            logger.info(f"Creating COCO file for {dataset} set.")
+            with open(os.path.join(COCO_DIR, f"COCO_{dataset}.json"), "w") as fp:
+                json.dump(coco_dict, fp, indent=4)
+            written_files.append(os.path.join(COCO_DIR, f"COCO_{dataset}.json"))
 
         if PREPARE_YOLO:
-            logger.info(f"Creating corresponding COCO file for the annotation transformation to YOLO.")
+            logger.info(f"Creating COCO file for the annotation transformation to YOLO.")
             dataset_tiles_dict[dataset]["file_name"] = [os.path.basename(f) for f in dataset_tiles_dict[dataset]["file_name"]]
             coco_dict = assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
 
@@ -271,7 +297,7 @@ def main(cfg_file_path):
     logger.success("Done! The following files have been created:")
     for file in written_files:
         logger.success(file)
-    logger.success(f"In addition, some tiles were written in {OUTPUT_DIR}.")
+    logger.success(f"In addition, some tiles were written in {OUTPUT_DIRS}.")
 
     logger.info(f"Done in {round(time() - tic, 2)} seconds.")
 

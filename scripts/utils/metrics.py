@@ -1,6 +1,9 @@
 import pandas as pd
 from geopandas import sjoin
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     """
     Find the intersecting detections and labels.
@@ -59,7 +62,7 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     candidates_tp_gdf.loc[:, ['IOU']] = [intersection_over_union(i, ii) for (i, ii) in zip(geom1, geom2)]
 
     # Filter detections based on IoU value
-    best_matches_gdf = candidates_tp_gdf.groupby(['det_id'], group_keys=False).apply(lambda g:g[g.IOU==g.IOU.max()])
+    best_matches_gdf = candidates_tp_gdf.groupby(['det_id'], group_keys=False).apply(lambda g:g[g.IOU==g.IOU.max()], include_groups=True)
     best_matches_gdf.drop_duplicates(subset=['det_id'], inplace=True) # Case to IoU are equal for a detection
 
     # Detection, resp labels, with IOU lower than threshold value are considered as FP, resp FN, and saved as such

@@ -8,7 +8,6 @@ from yaml import load, FullLoader
 
 import pandas as pd
 import shapely as shp
-from detectron2.data.datasets import load_coco_json, register_coco_instances
 from geopandas import GeoDataFrame, GeoSeries, sjoin
 from shapely.geometry import MultiPolygon, Polygon
 from statistics import median
@@ -109,7 +108,7 @@ def transform_annotations(tile_name, annotations_df, images_df, images_dir='imag
         buffered_geom = misc.segmentation_to_polygon(ann_segmentation).buffer(buffer)
         ann_geohash = shp.to_wkb(buffered_geom)
 
-        image_id = images_df.loc[images_df.file_name==original_name, 'image_id'].iloc[0]
+        image_id = images_df.loc[images_df.file_name==os.path.basename(original_name), 'image_id'].iloc[0]
 
         annotations_on_tiles_list.append({
             'id': getattr(ann, id_field),
@@ -151,22 +150,25 @@ def main(cfg_file_path):
 
     logger.info(f"Read detections with a threshold of {SCORE_THRESHOLD} on the confidence score...")
     detections_df = pd.DataFrame()
-    for path in DETECTIONS_FILES.values():
+    for dataset_key, path in DETECTIONS_FILES.items():
         with open(path) as fp:
-            detections_df = pd.concat([detections_df, pd.DataFrame.from_records(json.load(fp))], ignore_index=True)
+            dets = pd.DataFrame.from_records(json.load(fp))
+        dets['dataset'] = dataset_key
+        detections_df = pd.concat([detections_df, dets], ignore_index=True)
 
     logger.info(f"Found {len(detections_df)} detections.")
     detections_df = detections_df[detections_df.score >= SCORE_THRESHOLD]
     logger.info(f"{len(detections_df)} detections are left after thresholding on the score.")
 
     images_df = pd.DataFrame()
-    for dataset_key, coco_file in PANOPTIC_COCO_FILES.items():
-        register_coco_instances(dataset_key, {}, coco_file, "")
+    for coco_file in PANOPTIC_COCO_FILES.values():
+        with open(coco_file) as fp:
+            coco_data = json.load(fp)['images']
 
-        coco_data = load_coco_json(coco_file, IMAGE_DIR, dataset_key)
-        images_df = pd.concat((images_df, pd.DataFrame(coco_data).drop(columns='annotations')), ignore_index=True)
+        images_df = pd.concat((images_df, pd.DataFrame(coco_data)), ignore_index=True)
 
     del coco_data
+    images_df.rename(columns={'id': 'image_id'}, inplace=True)
 
     transformed_detections= []
     for tile_name in tqdm(detections_df['file_name'].unique(), desc="Tranform detections back to panoptic images"):

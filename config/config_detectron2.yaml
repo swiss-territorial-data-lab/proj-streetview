@@ -10,7 +10,8 @@ prepare_coco_data.py:
     RCNE: ../data/RCNE/Object_Detect_GT/valid_ne_250626.json
   ratio_wo_annotations: 0
   seed: 42
-  preapre_yolo: True
+  prepare_coco: True
+  prepare_yolo: False
   overwrite_images: False
 
 

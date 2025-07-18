@@ -11,6 +11,7 @@ def yolo_to_coco_annotations(results, image_info_df=None, tqdm_disable=False):
     else:
         image_info_as_df = False
         image_id = None
+        image_file = None
 
     det_id = 0
     annotations = []
@@ -18,7 +19,8 @@ def yolo_to_coco_annotations(results, image_info_df=None, tqdm_disable=False):
     for result in tqdm(results, desc="Converting annotations", disable=tqdm_disable):
         if image_info_as_df:
             image_info = _image_info_df[_image_info_df['file_name'] == os.path.basename(result.path)]
-            image_id = image_info['image_id'].iloc[0]
+            image_id = int(image_info['id'].iloc[0])
+            image_file = image_info['file_name'].iloc[0]
 
         for det_index in range(len(result.boxes.cls)):
             category_id = int(result.boxes.cls[det_index])
@@ -40,13 +42,14 @@ def yolo_to_coco_annotations(results, image_info_df=None, tqdm_disable=False):
 
             # Create annotation
             annotation = {
-                "id": det_id,
+                "det_id": det_id,
                 "image_id": image_id,
                 "bbox": bbox,
                 "area": area,
                 "score": score,
-                "category_id": category_id,
-                "segmentation": transformed_coords,
+                "det_class": category_id,
+                "segmentation": [transformed_coords],
+                "file_name": image_file
             }
             annotations.append(annotation)
 

@@ -92,8 +92,8 @@ for coco_image in tqdm(images_df.itertuples(), desc="Tagging images"):
 
         text_position = {
             "trn": (bbox[0], bbox[1]-10),
-            "val": (bbox[0], bbox[1] + bbox[3] + 10),
-            "tst": (bbox[0], bbox[1] + bbox[3] + 10),
+            "val": (bbox[0], bbox[1] + bbox[3] + 20),
+            "tst": (bbox[0], bbox[1] + bbox[3] + 20),
         }   
         cv2.putText(im, ' '.join([ann.dataset, str(ann.id), str(round(ann.score, 2))] + ([ann.tag] if 'tag' in corresponding_annotations.columns else [])), text_position[ann.dataset], cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
     filepath = os.path.join(OUTPUT_DIR, output_filename)

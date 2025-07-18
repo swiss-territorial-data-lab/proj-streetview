@@ -33,21 +33,20 @@ MODEL = cfg['model']
 PROJECT = cfg['project']
 PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 
-IMAGE_INFO_PATH = cfg['image_info']
+COCO_INFO_DIR = cfg['coco_info_folder']
 
 os.chdir(WORKING_DIR)
 os.makedirs(os.path.join(PROJECT, PROJECT_NAME), exist_ok=True)
 written_files = []
 
-logger.info('Get image infos...')
-with open(IMAGE_INFO_PATH, 'r') as fp:
-    image_infos_dict = json.load(fp)['images']
-images_infos_df = DataFrame.from_records(image_infos_dict)[['file_name', 'id']]
-del image_infos_dict
-
-
 for dataset, path in DATASET_IMAGES_DIR.items():
-    logger.info(f"Perform inference on dataset {dataset}...")
+    logger.info(f"Working on the dataset {dataset}...")
+    logger.info('Get image infos...')
+    with open(os.path.join(COCO_INFO_DIR, f'{dataset}.json'), 'r') as fp:
+        image_infos_dict = json.load(fp)['images']
+    images_infos_df = DataFrame.from_records(image_infos_dict)[['file_name', 'id']]
+
+    logger.info(f"Perform inference...")
     model = YOLO(MODEL)
     results = model(
         path, 
@@ -58,7 +57,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
 
     coco_detections = yolo_to_coco_annotations(results, images_infos_df)
 
-    logger.info(f"Save annotations for dataset {dataset}...")
+    logger.info(f"Save annotations...")
     filepath = os.path.join(PROJECT, PROJECT_NAME, f'YOLO_{dataset}_detections.json')
     with open(filepath, 'w') as fp:
         json.dump(coco_detections, fp)

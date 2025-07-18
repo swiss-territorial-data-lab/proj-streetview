@@ -35,8 +35,12 @@ def main(cfg_file_path):
 
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder']
-    DETECTION_FILES = cfg['datasets']['detections_files']
-    GT_FILES = cfg['datasets']['ground_truth_files']
+    
+    DATASETS = cfg['datasets']
+    PATH_DETECTIONS = DATASETS['path_detections']
+    DETECTION_FILES = DATASETS['detections_files']
+    PATH_GROUND_TRUTH = DATASETS['path_ground_truth']
+    GT_FILES = DATASETS['ground_truth_files']
     
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
     IOU_THRESHOLD = cfg['iou_threshold'] if 'iou_threshold' in cfg.keys() else 0.25
@@ -63,7 +67,7 @@ def main(cfg_file_path):
     nbr_tiles = 0
     nbr_labels = 0
     for dataset, labels_file in GT_FILES.items():
-        with open(labels_file) as fp:
+        with open(os.path.join(PATH_GROUND_TRUTH, labels_file)) as fp:
             coco_dict = json.load(fp)
         labels_df = pd.DataFrame.from_records(coco_dict['annotations'])
 
@@ -102,7 +106,7 @@ def main(cfg_file_path):
     nbr_dets = 0
     det_segmentation_df = pd.DataFrame()
     for dataset, dets_file in DETECTION_FILES.items():
-        with open(dets_file) as fp:
+        with open(os.path.join(PATH_DETECTIONS, dets_file)) as fp:
             dets_dict = json.load(fp)
         if isinstance(dets_dict, dict):
             dets_dict = dets_dict['annotations']

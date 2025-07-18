@@ -8,7 +8,6 @@ from yaml import load, FullLoader
 
 import pandas as pd
 import shapely as shp
-from detectron2.data.datasets import load_coco_json, register_coco_instances
 from geopandas import GeoDataFrame
 
 import transform_detections as trans_dets
@@ -50,11 +49,10 @@ def main(cfg_file_path):
         clipped_labels_df = pd.concat([clipped_labels_df, dataset_labels_df], ignore_index=True)
 
     images_df = pd.DataFrame()
-    for dataset_key, coco_file in PANOPTIC_COCO_FILES.items():
-        register_coco_instances(dataset_key, {}, coco_file, "")
-
-        coco_data = load_coco_json(coco_file, IMAGE_DIR, dataset_key)
-        images_df = pd.concat((images_df, pd.DataFrame(coco_data).drop(columns='annotations')), ignore_index=True)
+    for coco_file in PANOPTIC_COCO_FILES.values():
+        with open(coco_file) as fp:
+            coco_data = json.load(fp)
+        images_df = pd.concat((images_df, pd.DataFrame.from_records(coco_data['images']).rename(columns={'id': 'image_id'})), ignore_index=True)
 
     del coco_data, dataset_labels_df, tiles_df
 

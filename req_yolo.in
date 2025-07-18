@@ -4,6 +4,7 @@ loguru
 opencv-python
 pygeohash
 plotly
+scikit-learn
 
 # YOLO
 ray

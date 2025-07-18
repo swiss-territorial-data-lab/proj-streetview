@@ -74,11 +74,11 @@ print(ray.cluster_resources())
 # 離 Espace de recherche (grille simple ici, peut être étendu)
 search_space = {
     "model": tune.grid_search(["yolo11m-seg", "yolo11s-seg"]),
-    "lr0": tune.grid_search([0.001, 0.005, 0.01, 0.05]),
-    "lrf": tune.grid_search([0.001, 0.01, 0.05]),
-    "batch": tune.grid_search([5, 10, 15, 20, 25]),
+    "lr0": tune.grid_search([0.005, 0.01, 0.05]),
+    "lrf": tune.grid_search([0.005, 0.01, 0.05]),
+    "batch": tune.grid_search([5, 15, 25]),
     "optimizer": tune.grid_search(["SGD", "Adam"]),
-    'patience': tune.grid_search([10, 25, 50]),
+    'patience': tune.grid_search([10, 25]),
 }
 
 # ⚙️ Lance les expériences Ray Tune

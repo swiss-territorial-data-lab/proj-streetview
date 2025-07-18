@@ -1,23 +1,24 @@
 prepare_coco_data.py:
   working_directory: outputs
-  output_dir: detectron2
-  image_dir: ../data/RCNE/panoramic_images/
+  coco_dir: detectron2
+  yolo_dir: coco_for_yolo_conversion
+  image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   COCO_files:
     RCNE: ../data/RCNE/Object_Detect_GT/valid_ne_250626.json
   ratio_wo_annotations: 0
   seed: 42
-  preapre_yolo: True
+  prepare_yolo: True
   overwrite_images: False
 
 coco_to_yolo.py:
   working_directory: .
-  input_folder: outputs/COCO_datasets
-  output_folder: datasets/YOLO_datasets
+  input_folder: outputs/coco_for_yolo_conversion
+  output_folder: datasets/RCNE_datasets_512
 
 redistribute_images.py:
-  working_directory: outputs/COCO_datasets
+  working_directory: outputs/coco_for_yolo_conversion
   image_folder: .
-  output_folder: ../../datasets/YOLO_datasets/images
+  output_folder: ../../datasets/RCNE_datasets_512/images
   COCO_files:
     trn: trn.json
     val: val.json
@@ -57,4 +58,20 @@ infer_with_yolo.py:
     trn: datasets/RCNE_datasets_512/images/trn
     val: datasets/RCNE_datasets_512/images/val
     tst: datasets/RCNE_datasets_512/images/tst
-  image_info: ../data/RCNE/Object_Detect_GT/ne_COCO.json
+  coco_info_folder: coco_for_yolo_conversion
+
+assess_detections.py:
+  working_directory: outputs/yolo
+  output_folder: eval
+  metrics_method: micro-average
+  datasets:
+    path_ground_truth: ../coco_for_yolo_conversion
+    ground_truth_files:
+      trn: trn.json
+      val: val.json
+      tst: tst.json
+    path_detections: infer/run00
+    detections_files:
+      trn: YOLO_trn_detections.json
+      val: YOLO_val_detections.json
+      tst: YOLO_tst_detections.json
