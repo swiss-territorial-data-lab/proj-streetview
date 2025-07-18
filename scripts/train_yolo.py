@@ -1,0 +1,61 @@
+import json
+import os
+from argparse import ArgumentParser
+from loguru import logger
+from time import time
+from yaml import load, FullLoader
+
+from ultralytics import YOLO
+
+from utils.constants import YOLO_PARAMETERS, YOLO_TRAINING_OPTIONS
+from utils.misc import format_logger
+
+import torch
+
+logger = format_logger(logger)
+
+def val_interval(trainer, interval=100):
+    trainer.args.val = ((trainer.epoch + 1) % interval) == 0
+
+parser = ArgumentParser(description="This script prepares COCO datasets.")
+parser.add_argument('config_file', type=str, help='a YAML config file')
+args = parser.parse_args()
+
+tic = time()
+logger.info('Starting...')
+
+logger.info(f"Using {args.config_file} as config file.")
+
+with open(args.config_file) as fp:
+    cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
+
+WORKING_DIR = cfg['working_directory']
+# OUTPUT_DIR = cfg['output_folder']
+
+YOLO_FILE = cfg['yolo_file']
+MODEL = cfg['model']
+RESUME_TRAINING = cfg['resume_training']
+
+PROJECT = cfg['project']
+PROJECT_NAME = cfg['project_name']
+BEST_PARAMETERS_PATH = cfg['best_parameters_path']
+
+os.chdir(WORKING_DIR)
+# os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+print(f"Available GPUs: {torch.cuda.device_count()}")
+
+model = YOLO(MODEL)
+with open(BEST_PARAMETERS_PATH) as fp:
+    best_parameters = json.load(fp)
+
+model.train(
+    project=PROJECT,
+    name=PROJECT_NAME,
+    save=True,
+    save_period=5,
+    plots=True,
+    resume=RESUME_TRAINING
+    **YOLO_TRAINING_OPTIONS
+    **best_parameters
+    )

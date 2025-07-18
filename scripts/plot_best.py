@@ -44,6 +44,7 @@ for d in os.listdir(RAY_RESULTS_DIR):
             os.path.join(RAY_RESULTS_DIR, d, dd) for dd in os.listdir(os.path.join(RAY_RESULTS_DIR, d)) 
             if dd.startswith("train_yolo_")
         ]
+logger.info(f"Found {len(train_dirs)} training subdirectories.")
 
 # Dictionaries to store best metrics per run
 best_precision_results = {}
@@ -76,32 +77,34 @@ for train_path in train_dirs:
             best_map50_results[train_dir] = best_map50
 
         except Exception as e:
-            print(f"Error reading {progress_csv_path}: {e}")
+            logger.info(f"Error reading {progress_csv_path}: {e}")
 
 # Find best runs for precision, F-score, and mAP50
 if best_precision_results:
     best_precision_run = max(best_precision_results, key=best_precision_results.get)
     best_precision_value = best_precision_results[best_precision_run]
 
-    print(f"Best Precision Run: {best_precision_run}")
-    print(f"Best Precision(M): {best_precision_value:.4f}")
+    logger.info(f"Best Precision Run: {best_precision_run}")
+    logger.info(f"Best Precision(M): {best_precision_value:.4f}")
 else:
-    print("⚠ No valid precision results found.")
+    logger.info("⚠ No valid precision results found.")
 
 if best_fscore_results:
     best_fscore_run = max(best_fscore_results, key=best_fscore_results.get)
     best_fscore_value = best_fscore_results[best_fscore_run]
 
-    print(f"Best F-score Run: {best_fscore_run}")
-    print(f"Best F1(M): {best_fscore_value:.4f}")
+    logger.info(f"Best F-score Run: {best_fscore_run}")
+    logger.info(f"Best F1(M): {best_fscore_value:.4f}")
 else:
-    print("⚠ No valid F-score results found.")
+    logger.info("⚠ No valid F-score results found.")
 
 if best_map50_results:
     best_map50_run = max(best_map50_results, key=best_map50_results.get)
     best_map50_value = best_map50_results[best_map50_run]
 
-    print(f"Best mAP50 Run: {best_map50_run}")
-    print(f"Best mAP50(M): {best_map50_value:.4f}")
+    logger.info(f"Best mAP50 Run: {best_map50_run}")
+    logger.info(f"Best mAP50(M): {best_map50_value:.4f}")
 else:
-    print("⚠ No valid mAP50 results found.")
+    logger.info("⚠ No valid mAP50 results found.")
+
+logger.success(f"Done in {round(time() - tic, 2)} seconds.")
