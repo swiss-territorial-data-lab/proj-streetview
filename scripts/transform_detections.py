@@ -175,6 +175,7 @@ def main(cfg_file_path):
         )
 
     transformed_detections_gdf = GeoDataFrame(pd.DataFrame.from_records(transformed_detections), geometry='buffered_geometry')
+    transformed_detections_gdf = transformed_detections_gdf[~transformed_detections_gdf.geometry.is_empty]
 
     for dataset in DETECTIONS_FILES.keys():
         logger.info(f'Working on the {dataset} dataset...')

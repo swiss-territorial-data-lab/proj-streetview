@@ -162,7 +162,7 @@ def segmentation_to_polygon(segm):
     # transform segmentation coordinates to a polygon or a multipolygon
     if len(segm)==1:
         if len(segm[0])<5:
-            return None
+            return Polygon()
         x = segm[0][0::2]
         y = segm[0][1::2]
         poly = Polygon(zip(x, y))
@@ -175,7 +175,7 @@ def segmentation_to_polygon(segm):
             y = coord_list[1::2]
             parts.append(Polygon(zip(x, y)))
         if len(parts)==0:
-            return None
+            return Polygon()
         poly = MultiPolygon(parts) if len(parts)>1 else parts[0]
 
     if not poly.is_valid and 'Self-intersection' in explain_validity(poly):
@@ -193,10 +193,9 @@ def segmentation_to_polygon(segm):
         else:
             poly = valid_poly
 
-    if not poly.is_valid:
-        logger.warning(f"Polygon is not valid: {poly}")
-
     if poly.area == 0:
         logger.warning(f"Polygon area is 0: {poly}")
+    elif not poly.is_valid:
+        logger.warning(f"Polygon is not valid: {poly}")
 
     return poly

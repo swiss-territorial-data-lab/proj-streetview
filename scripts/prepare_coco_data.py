@@ -66,9 +66,9 @@ def main(cfg_file_path):
     SEED = cfg['seed']
     OVERWRITE_IMAGES = cfg['overwrite_images']
 
-    OVERLAP_X = 135
-    OVERLAP_Y = 114
-    PADDING_Y = 736
+    OVERLAP_X = 224
+    OVERLAP_Y = 224
+    PADDING_Y = 1248
     DEBUG = False
 
     os.chdir(WORKING_DIR)
