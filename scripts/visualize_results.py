@@ -31,6 +31,8 @@ IMAGE_DIR = cfg['image_folder']
 
 TAGGED_COCO_FILES = cfg['tagged_COCO_files']
 
+IMAGE_IDS = cfg['image_ids'] if 'image_ids' in cfg.keys() else []
+
 os.chdir(WORKING_DIR)
 if os.path.exists(OUTPUT_DIR):
     os.system(f"rm -rf {OUTPUT_DIR}")
@@ -52,7 +54,11 @@ for dataset in TAGGED_COCO_FILES.keys():
 
 del coco_data
 
-images_df = DataFrame.from_records(images).drop_duplicates(subset=["file_name"]).sample(frac=1, random_state=42)    # sample = shuffle rows
+images_df = DataFrame.from_records(images).drop_duplicates(subset=["file_name"])
+if len (IMAGE_IDS) > 0:
+    sample_images_df = images_df[images_df['id'].isin(IMAGE_IDS)]
+else:
+    sample_images_df = images_df.copy()
 annotations_df = DataFrame.from_records(annotations)
 if 'id' not in annotations_df.columns:
     annotations_df['id'] = [det_id if det_id == None else label_id for det_id, label_id in zip(annotations_df.det_id, annotations_df.label_id)]
@@ -68,7 +74,7 @@ colors_dict = {
 nbr_images_per_dataset = 50
 images_pro_dataset = {key: 0 for key in annotations_df["dataset"].unique()}
 nbr_images = nbr_images_per_dataset*len(images_pro_dataset.keys())
-for coco_image in tqdm(images_df.itertuples(), desc="Tagging images"):
+for coco_image in tqdm(sample_images_df.itertuples(), desc="Tagging images"):
     if all([im_nbr >= 50 for im_nbr in images_pro_dataset.values()]):
         break
 
@@ -92,8 +98,8 @@ for coco_image in tqdm(images_df.itertuples(), desc="Tagging images"):
 
         text_position = {
             "trn": (bbox[0], bbox[1]-10),
-            "val": (bbox[0], bbox[1] + 10),
-            "tst": (bbox[0], bbox[1] + bbox[3] + 10),
+            "val": (bbox[0], bbox[1] + 20),
+            "tst": (bbox[0], bbox[1] + bbox[3] + 20),
         }   
         cv2.putText(im, ' '.join([ann.dataset, str(ann.id), str(round(ann.score, 2))] + ([ann.tag] if 'tag' in corresponding_annotations.columns else [])), text_position[ann.dataset], cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
     filepath = os.path.join(OUTPUT_DIR, output_filename)
