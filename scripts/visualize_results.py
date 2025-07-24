@@ -58,7 +58,7 @@ images_df = DataFrame.from_records(images).drop_duplicates(subset=["file_name"])
 if len (IMAGE_IDS) > 0:
     sample_images_df = images_df[images_df['id'].isin(IMAGE_IDS)]
 else:
-    sample_images_df = images_df.copy()
+    sample_images_df = images_df.sample(frac=1, random_state=42)    # sample = shuffle rows to create mixity in output
 annotations_df = DataFrame.from_records(annotations)
 if 'id' not in annotations_df.columns:
     annotations_df['id'] = [det_id if det_id == None else label_id for det_id, label_id in zip(annotations_df.det_id, annotations_df.label_id)]

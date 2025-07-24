@@ -88,7 +88,7 @@ def main(cfg_file_path):
 
     COCO_FILES_DICT = cfg['COCO_files']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
-    MAKE_OTH_DATASETS = cfg['make_oth_dataset'] if 'make_oth_dataset' in cfg.keys() else False
+    MAKE_OTH_DATASET = cfg['make_other_dataset'] if 'make_other_dataset' in cfg.keys() else False
     SEED = cfg['seed']
     OVERWRITE_IMAGES = cfg['overwrite_images']
 
@@ -138,7 +138,6 @@ def main(cfg_file_path):
     gt_tiles_df = pd.DataFrame()
     oth_tiles_df = pd.DataFrame()
     clipped_annotations_df = pd.DataFrame()
-    images_to_tiles_dict = {}
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
     for image in tqdm(images_and_annotations_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(images_and_annotations_df)):
@@ -147,7 +146,9 @@ def main(cfg_file_path):
         for i in range(PADDING_Y, IMAGE_HEIGHT - PADDING_Y, TILE_SIZE - OVERLAP_Y):
             for j in range(0, IMAGE_WIDTH - OVERLAP_X, TILE_SIZE - OVERLAP_X):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
-                tiles.append({"height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset})
+                tiles.append({
+                    "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset, "original_image": image.file_name
+                })
                 image_id += 1
 
         all_tiles_df = pd.DataFrame(tiles)
@@ -233,29 +234,31 @@ def main(cfg_file_path):
                 gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df), ignore_index=True)
                 selected_tiles = tiles_with_ann_df.file_name.unique().tolist()
 
-        if MAKE_OTH_DATASETS:
+        if MAKE_OTH_DATASET:
             tiles_without_ann_df = all_tiles_df[~(condition_annotations | all_tiles_df["file_name"].isin(selected_tiles))].copy()
             tiles_without_ann_df["row_level"] = tiles_without_ann_df["file_name"].apply(lambda x: int(x.split("_")[-1].rstrip(".jpg")))
             max_height = tiles_without_ann_df["row_level"].max()
-            oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df[tiles_without_ann_df["row_level"] > max_height*2/3]], ignore_index=True)
-            selected_tiles.extend(oth_tiles_df.file_name.unique())
+            oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df[tiles_without_ann_df["row_level"] > max_height*3/4]], ignore_index=True)
 
-        images_to_tiles_dict[image.file_name] = selected_tiles
+            del tiles_without_ann_df
 
-        del tile_annotations_df
+        del all_tiles_df, condition_annotations, tile_annotations_df, selected_tiles
                 
-    del all_tiles_df
-    logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and kept {tot_tiles_without_ann} tiles without annotations.")
+    logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and kept {tot_tiles_without_ann} tiles without annotations in training datasets.")
+    images_to_tiles_dict = gt_tiles_df.groupby('original_image')['file_name'].apply(list).to_dict()
+    gt_tiles_df.drop(columns='original_image', inplace=True)
+    
+    if MAKE_OTH_DATASET:
+        logger.info(f"Kept {oth_tiles_df.shape[0]} tiles without annotations in other dataset.")
+        images_to_tiles_dict = {**images_to_tiles_dict, **oth_tiles_df.groupby('original_image')['file_name'].apply(list).to_dict()}
+        oth_tiles_df.drop(columns='original_image', inplace=True)
+
+    # Convert images to tiles
 
     _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
             image, corresponding_tiles, IMAGE_HEIGHT, IMAGE_WIDTH, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
         ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
     )
-    # for images, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
-    #     image_to_tiles(
-    #         images, corresponding_tiles, IMAGE_HEIGHT, IMAGE_WIDTH, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
-    #     )
-
     del images_to_tiles_dict
 
     duplicates = clipped_annotations_df.drop(columns='id').astype({'bbox': str, 'segmentation': str}, copy=True).duplicated()
