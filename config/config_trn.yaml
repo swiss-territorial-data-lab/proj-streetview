@@ -7,8 +7,9 @@ prepare_coco_data.py:
   output_dir: outputs/detectron2
   image_dir: data/RCNE/panoramic_images/
   COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250722.json
   ratio_wo_annotations: 0
+  make_other_dataset: True
   seed: 42
   overwrite_images: False
 
@@ -33,9 +34,10 @@ make_inference.py:
     trn: COCO_trn.json
     val: COCO_val.json
     tst: COCO_tst.json
+    oth: COCO_oth.json
   detectron2_config_file: ../../config/detectron2_config.yaml # path relative to the working_folder
   model_weights:
-    pth_file: logs/model_final.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
+    pth_file: logs/model_0019999.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
   image_metadata_json: img_metadata.json
   score_lower_threshold: 0.05
 
