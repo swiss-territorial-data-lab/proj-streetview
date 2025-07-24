@@ -13,19 +13,13 @@ def assemble_coco_json(images, annotations, categories):
     """
     Assemble a COCO JSON dictionary from annotations, images and categories DataFrames.
 
-    Parameters
-    ----------
-    images : DataFrame or list
-        images DataFrame or record list containing the images info.
-    annotations : DataFrame or list
-        annotations DataFrame or record list containing the annotations info.
-    categories : DataFrame or list
-        categories DataFrame or record list containing the categories info.
+    Args:
+        images (DataFrame or list): Images DataFrame or record list containing the images info.
+        annotations (DataFrame or list): Annotations DataFrame or record list containing the annotations info.
+        categories (DataFrame or list): Categories DataFrame or record list containing the categories info.
 
-    Returns
-    -------
-    COCO_dict : dict
-        A dictionary with the COCO JSON structure.
+    Returns:
+        dict: A dictionary with the COCO JSON structure.
     """
     COCO_dict = {}
     for info_type, entry in {"images": images, "annotations": annotations, "categories": categories}.items():
@@ -60,6 +54,15 @@ def assign_groups(row, group_index):
 
 
 def format_logger(logger):
+    """
+    Configures the logger to format log messages with specific styles and colors based on their severity level.
+
+    Args:
+        logger (loguru.logger): The logger instance to be formatted.
+
+    Returns:
+        loguru.logger: The configured logger instance with custom formatting.
+    """
 
     logger.remove()
     logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",
@@ -75,6 +78,15 @@ def format_logger(logger):
 
 
 def find_category(df):
+    """
+    Ensures that the CATEGORY and SUPERCATEGORY columns are present in the input DataFrame.
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing the GT labels.
+
+    Returns:
+        pandas.DataFrame: The input DataFrame with the CATEGORY and SUPERCATEGORY columns properly renamed.
+    """
 
     if 'category' in df.columns:
         df.rename(columns={'category': 'CATEGORY'}, inplace = True)
@@ -89,33 +101,6 @@ def find_category(df):
         sys.exit(1)
     
     return df
-
-
-def geohash(row):
-    """Geohash encoding (https://en.wikipedia.org/wiki/Geohash) of a location (point).
-    If geometry type is a point then (x, y) coordinates of the point are considered. 
-    If geometry type is a polygon then (x, y) coordinates of the polygon centroid are considered. 
-    Other geometries are not handled at the moment    
-
-    Args:
-        row: geodaframe row
-
-    Raises:
-        Error: geometry error
-
-    Returns:
-        out (str): geohash code for a given geometry
-    """
-    
-    if row.geometry.geom_type == 'Point':
-        out = pgh.encode(latitude=row.geometry.y, longitude=row.geometry.x, precision=16)
-    elif row.geometry.geom_type == 'Polygon':
-        out = pgh.encode(latitude=row.geometry.centroid.y, longitude=row.geometry.centroid.x, precision=16)
-    else:
-        logger.error(f"{row.geometry.geom_type} type is not handled (only Point or Polygon geometry type)")
-        sys.exit()
-
-    return out
 
 
 def get_number_of_classes(coco_files_dict):
@@ -159,7 +144,22 @@ def make_groups(gdf):
 
 
 def segmentation_to_polygon(segm):
-    # transform segmentation coordinates to a polygon or a multipolygon
+    """
+    Convert a COCO-style segmentation into a shapely Polygon or MultiPolygon.
+
+    Args:
+        segm (list): A list of lists where each sublist contains the x and y coordinates of the polygon's exterior in a flattened format suitable for COCO segmentation.
+
+    Returns:
+        shapely.Polygon or shapely.MultiPolygon: A shapely geometry object representing the polygon(s).
+
+    Notes:
+        COCO-style segmentation is a list of lists where each sublist contains the x and y coordinates of the polygon's exterior in a flattened format (e.g. [x1, y1, x2, y2, ...]).
+        This function will return a Polygon or MultiPolygon depending on the number of polygons in the COCO-style segmentation.
+        If the polygon is not valid (e.g. self-intersection), it will be made valid using shapely's make_valid function.
+        If the polygon area is 0 or not valid, a warning message will be printed.
+    """
+    
     if len(segm)==1:
         if len(segm[0])<5:
             return Polygon()

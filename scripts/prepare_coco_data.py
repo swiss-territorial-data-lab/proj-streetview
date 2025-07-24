@@ -19,6 +19,20 @@ from utils.misc import assemble_coco_json, format_logger, segmentation_to_polygo
 logger = format_logger(logger)
 
 def check_bbox_plausibility(new_origin, length):
+    """
+    Adjusts and checks the plausibility of a bounding box's origin and length within a tile.
+
+    Args:
+        new_origin (int): The proposed new origin of the bounding box.
+        length (int): The proposed length of the bounding box.
+
+    Returns:
+        tuple: A tuple containing the adjusted new_origin and length, ensuring they fit within the tile size.
+
+    Raises:
+        AssertionError: If the adjusted bounding box origin or length is outside the tile.
+    """
+
     if new_origin < 0:
         length = length + new_origin
         new_origin = 0
@@ -32,17 +46,28 @@ def check_bbox_plausibility(new_origin, length):
     return new_origin, length
 
 
-def compute_polygon_area(segm):
-    poly = segmentation_to_polygon(segm)
-
-    return poly.area
-
-
 def get_new_coordinate(initial_coor, tile_min):
+    # Calculates the new coordinate for a bounding box annotation to be within a tile.
     return max(min(initial_coor-tile_min, TILE_SIZE), 0)
 
 
 def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_height, image_width, output_dir='outputs', overwrite=False):
+    """
+    Cuts an image into tiles, masks pixels corresponding to rejected annotations and saves the tiles to disk.
+
+    Args:
+        image (str): The path to the image file.
+        corresponding_tiles (list): A list of paths to the tiles that the image should be cut into.
+        rejected_annotations_df (DataFrame): A DataFrame containing annotations that should be rejected (masked) on the tiles.
+        image_height (int): The height of the image in pixels.
+        image_width (int): The width of the image in pixels.
+        output_dir (str, optional): The directory where the tiles should be saved. Defaults to 'outputs'.
+        overwrite (bool, optional): Whether to overwrite existing tiles. Defaults to False.
+
+    Returns:
+        bool: True if all tiles were saved successfully, False otherwise.
+    """
+
     achieved = True
 
     img = cv2.imread(image)
@@ -75,12 +100,6 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
             achieved = cv2.imwrite(os.path.join(output_dir, tile_path), tile)
 
     return achieved
-
-
-def remove_discarded_tiles(all_tiles_df, selectd_tiles, output_dir):
-    for tile in all_tiles_df.file_name.unique():
-        if tile not in selectd_tiles:
-            os.remove(os.path.join(output_dir, tile))
 
 
 def main(cfg_file_path):
@@ -218,7 +237,7 @@ def main(cfg_file_path):
                         category_id=1,  # Currently, single class
                         iscrowd=ann["iscrowd"],
                         bbox=[x1, y1, new_width, new_height],
-                        area=compute_polygon_area([coords]),
+                        area=segmentation_to_polygon([coords]).area,
                         segmentation=[coords]
                     ))
                     annotation_id += 1
