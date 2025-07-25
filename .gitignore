@@ -1,5 +1,6 @@
 data/
 datasets/
+model/
 outputs/
 .vscode/
 

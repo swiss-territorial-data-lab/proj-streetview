@@ -50,3 +50,15 @@ visualize_results.py:
     # val: val_COCO_panoptic_detections.json
     # tst: tst_COCO_panoptic_detections.json
   coco_file_for_images: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+  # image_ids: [
+  #   4120,
+  #   4121,
+  #   4122,
+  #   4123,
+  #   4214,
+  #   4125,
+  #   4126,
+  #   4127,
+  #   4128,
+  #   4129
+  # ]

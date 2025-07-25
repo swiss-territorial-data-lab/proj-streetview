@@ -12,11 +12,11 @@ import datetime
 
 from detectron2.engine.hooks import HookBase
 from detectron2.engine import DefaultTrainer
-from detectron2.data import build_detection_test_loader, DatasetMapper
+from detectron2.data import build_detection_test_loader, build_detection_train_loader, DatasetMapper
+from detectron2.data import transforms as T
 from detectron2.evaluation import COCOEvaluator
 from detectron2.utils import comm
 from detectron2.utils.logger import log_every_n_seconds
-# from pycocotools.mask import encode
 
 # cf. https://medium.com/@apofeniaco/training-on-detectron2-with-a-validation-set-and-plot-loss-on-it-to-avoid-overfitting-6449418fbf4e
 # cf. https://towardsdatascience.com/face-detection-on-custom-dataset-with-detectron2-and-pytorch-using-python-23c17e99e162
@@ -88,31 +88,40 @@ class LossEvalHook(HookBase):
 
 class CocoTrainer(DefaultTrainer):
 
-  # https://github.com/facebookresearch/detectron2/blob/main/tools/train_net.py#L91
-  @classmethod
-  def build_evaluator(cls, cfg, dataset_name, output_folder=None):
-      
-    if output_folder is None:
-        output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+    # https://github.com/facebookresearch/detectron2/blob/main/tools/train_net.py#L91
+    @classmethod
+    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
         
-    os.makedirs("COCO_eval", exist_ok=True)
-    
-    return COCOEvaluator(dataset_name, None, False, output_folder)
+        if output_folder is None:
+            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+            
+        return COCOEvaluator(dataset_name, None, False, output_folder)
+  
+    @classmethod
+    def build_train_loader(cls, cfg):
+        mapper = DatasetMapper(cfg, is_train=True, augmentations=[
+           # Resize and flip defined directly in config
+           T.RandomBrightness(0.5, 1.5),
+           T.RandomContrast(0.5, 1.5),
+           T.RandomSaturation(0.5, 1.5),
+           T.RandomSaturation(0.5, 1.5),
+        ])
+        return build_detection_train_loader(cfg, mapper=mapper)
 
   
-  def build_hooks(self):
+    def build_hooks(self):
+            
+        hooks = super().build_hooks()
         
-    hooks = super().build_hooks()
-    
-    hooks.insert(-1,
-        LossEvalHook(
-            self.cfg.TEST.EVAL_PERIOD,
-            self.model,
-            build_detection_test_loader(self.cfg, self.cfg.DATASETS.TEST[0], DatasetMapper(self.cfg, True))
+        hooks.insert(-1,
+            LossEvalHook(
+                self.cfg.TEST.EVAL_PERIOD,
+                self.model,
+                build_detection_test_loader(self.cfg, self.cfg.DATASETS.TEST[0], DatasetMapper(self.cfg, True))
+            )
         )
-    )
-                
-    return hooks
+                    
+        return hooks
 
     
 

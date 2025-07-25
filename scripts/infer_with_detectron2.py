@@ -108,11 +108,10 @@ def main(cfg_file_path):
         for d in tqdm(DatasetCatalog.get(dataset)):
             
             im = cv2.imread(d["file_name"])
-            try:
-                outputs = predictor(im)
-            except Exception as e:
-                print(f"Exception: {e}, file: {d['file_name']}")
-                sys.exit(1)
+            if im is None:
+                logger.error(f"Could not read image {d['file_name']}")
+                continue
+            outputs = predictor(im)
                   
             this_image_feats = detectron2dets_to_features(outputs, d['file_name'])
 

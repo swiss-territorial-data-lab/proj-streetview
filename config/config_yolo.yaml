@@ -1,14 +1,18 @@
 prepare_coco_data.py:
   working_directory: outputs
-  coco_dir: detectron2
-  yolo_dir: coco_for_yolo_conversion
   image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   COCO_files:
-    RCNE: ../data/RCNE/Object_Detect_GT/valid_ne_250626.json
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250722.json
+  cached_validation:
+    RCNE: data/RCNE/Object_Detect_GT/coco_validator_cache_250724.json
   ratio_wo_annotations: 0
   seed: 42
-  prepare_yolo: True
   overwrite_images: False
+  tasks:
+    make_other_dataset: True
+    yolo:
+      prepare_data: True
+      subfolder: coco_for_yolo_conversion
 
 coco_to_yolo.py:
   working_directory: .

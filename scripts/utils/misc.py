@@ -13,19 +13,13 @@ def assemble_coco_json(images, annotations, categories):
     """
     Assemble a COCO JSON dictionary from annotations, images and categories DataFrames.
 
-    Parameters
-    ----------
-    images : DataFrame or list
-        images DataFrame or record list containing the images info.
-    annotations : DataFrame or list
-        annotations DataFrame or record list containing the annotations info.
-    categories : DataFrame or list
-        categories DataFrame or record list containing the categories info.
+    Args:
+        images (DataFrame or list): Images DataFrame or record list containing the images info.
+        annotations (DataFrame or list): Annotations DataFrame or record list containing the annotations info.
+        categories (DataFrame or list): Categories DataFrame or record list containing the categories info.
 
-    Returns
-    -------
-    COCO_dict : dict
-        A dictionary with the COCO JSON structure.
+    Returns:
+        dict: A dictionary with the COCO JSON structure.
     """
     COCO_dict = {}
     for info_type, entry in {"images": images, "annotations": annotations, "categories": categories}.items():
@@ -60,6 +54,15 @@ def assign_groups(row, group_index):
 
 
 def format_logger(logger):
+    """
+    Configures the logger to format log messages with specific styles and colors based on their severity level.
+
+    Args:
+        logger (loguru.logger): The logger instance to be formatted.
+
+    Returns:
+        loguru.logger: The configured logger instance with custom formatting.
+    """
 
     logger.remove()
     logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",
@@ -75,6 +78,15 @@ def format_logger(logger):
 
 
 def find_category(df):
+    """
+    Ensures that the CATEGORY and SUPERCATEGORY columns are present in the input DataFrame.
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing the GT labels.
+
+    Returns:
+        pandas.DataFrame: The input DataFrame with the CATEGORY and SUPERCATEGORY columns properly renamed.
+    """
 
     if 'category' in df.columns:
         df.rename(columns={'category': 'CATEGORY'}, inplace = True)
@@ -122,7 +134,7 @@ def get_number_of_classes(coco_file):
     """Read the number of classes from the tileset COCO file.
 
     Args:
-        coco_files_dict (dict): COCO file of the tileset
+        coco_file (dict): COCO file of the tileset
 
     Returns:
         num_classes (int): number of classes in the dataset
@@ -159,10 +171,25 @@ def make_groups(gdf):
 
 
 def segmentation_to_polygon(segm):
-    # transform segmentation coordinates to a polygon or a multipolygon
+    """
+    Convert a COCO-style segmentation into a shapely Polygon or MultiPolygon.
+
+    Args:
+        segm (list): A list of lists where each sublist contains the x and y coordinates of the polygon's exterior in a flattened format suitable for COCO segmentation.
+
+    Returns:
+        shapely.Polygon or shapely.MultiPolygon: A shapely geometry object representing the polygon(s).
+
+    Notes:
+        COCO-style segmentation is a list of lists where each sublist contains the x and y coordinates of the polygon's exterior in a flattened format (e.g. [x1, y1, x2, y2, ...]).
+        This function will return a Polygon or MultiPolygon depending on the number of polygons in the COCO-style segmentation.
+        If the polygon is not valid (e.g. self-intersection), it will be made valid using shapely's make_valid function.
+        If the polygon area is 0 or not valid, a warning message will be printed.
+    """
+    
     if len(segm)==1:
         if len(segm[0])<5:
-            return None
+            return Polygon()
         x = segm[0][0::2]
         y = segm[0][1::2]
         poly = Polygon(zip(x, y))
@@ -175,7 +202,7 @@ def segmentation_to_polygon(segm):
             y = coord_list[1::2]
             parts.append(Polygon(zip(x, y)))
         if len(parts)==0:
-            return None
+            return Polygon()
         poly = MultiPolygon(parts) if len(parts)>1 else parts[0]
 
     if not poly.is_valid and 'Self-intersection' in explain_validity(poly):
@@ -193,10 +220,9 @@ def segmentation_to_polygon(segm):
         else:
             poly = valid_poly
 
-    if not poly.is_valid:
-        logger.warning(f"Polygon is not valid: {poly}")
-
     if poly.area == 0:
         logger.warning(f"Polygon area is 0: {poly}")
+    elif not poly.is_valid:
+        logger.warning(f"Polygon is not valid: {poly}")
 
     return poly

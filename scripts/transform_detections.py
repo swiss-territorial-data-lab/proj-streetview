@@ -19,7 +19,25 @@ logger = misc.format_logger(logger)
 
 
 def group_annotations(transformed_detections_gdf):
-    # Control overlap between detections
+    """
+    Groups overlapping annotations in the transformed detections GeoDataFrame.
+
+    This function performs a spatial self-join on the `transformed_detections_gdf` to find 
+    overlapping annotation pairs that belong to the same image and dataset. It then groups 
+    these overlapping annotations using a graph-based approach, assigning a unique group 
+    ID to each connected component of overlapping annotations.
+
+    Args:
+        transformed_detections_gdf (GeoDataFrame): A GeoDataFrame containing transformed 
+        detections with geometry information.
+
+    Returns:
+        DataFrame: A DataFrame with the same columns as `transformed_detections_gdf`, 
+        but with an additional column 'group_id' indicating the group number each 
+        annotation belongs to.
+    """
+
+    # Find overlapping pairs
     self_join = sjoin(transformed_detections_gdf, transformed_detections_gdf, how='inner')
     valid_self_join = self_join[
         (self_join['id_left'] <= self_join['id_right'])
@@ -36,6 +54,19 @@ def group_annotations(transformed_detections_gdf):
 
 
 def make_new_annotation(group,groupped_pairs_df, buffer=1):
+    """
+    Creates a new annotation based on a group of overlapping detections.
+
+    Args:
+        group (int): The group number of the overlapping detections.
+        groupped_pairs_df (DataFrame): A DataFrame containing the overlapping pairs
+            of detections, with group number assigned to each pair.
+        buffer (int, optional): The buffer size to subtract from the new geometry.
+            Defaults to 1.
+
+    Returns:
+        dict: A dictionary containing the new annotation information.
+    """
     group_dets = groupped_pairs_df[groupped_pairs_df.group_id==group].copy()
 
     # Keep lowest id, median score. Calculate new segmentation, area and bbox
@@ -90,6 +121,22 @@ def polygon_to_segmentation(multipolygon):
 
 
 def transform_annotations(tile_name, annotations_df, images_df, images_dir='images', buffer=1, id_field='id', category_field='category_id'):
+    """
+    Transform COCO annotations on a tile to their original image and pixel coordinates.
+
+    Args:
+        tile_name (str): The name of the tile, including the directory and extension.
+        annotations_df (DataFrame): A DataFrame containing the COCO annotations for the tile.
+        images_df (DataFrame): A DataFrame containing information about the original images.
+        images_dir (str, optional): The directory where the images are stored. Defaults to 'images'.
+        buffer (int, optional): The amount of pixels to buffer the geometry of each annotation. Defaults to 1.
+        id_field (str, optional): The name of the column in annotations_df containing the annotation ID. Defaults to 'id'.
+        category_field (str, optional): The name of the column in annotations_df containing the category ID. Defaults to 'category_id'.
+
+    Returns:
+        list: A list of dictionaries, each representing an annotation on the original image.
+    """
+    
     name_parts = tile_name.rstrip('.jpg').split('_')
     original_name = os.path.join(images_dir, os.path.basename('_'.join(name_parts[:-2]) + '.jpg'))
     tile_origin_x, tile_origin_y = int(name_parts[-2]), int(name_parts[-1])
@@ -105,6 +152,7 @@ def transform_annotations(tile_name, annotations_df, images_df, images_dir='imag
                 poly_coordinates.append(poly[coor_id] + tile_origin_x)
                 poly_coordinates.append(poly[coor_id + 1] + tile_origin_y)
             ann_segmentation.append(poly_coordinates)
+        # Buffer geometry to facilitate overlap in the next step
         buffered_geom = misc.segmentation_to_polygon(ann_segmentation).buffer(buffer)
         ann_geohash = shp.to_wkb(buffered_geom)
 
@@ -177,6 +225,7 @@ def main(cfg_file_path):
         )
 
     transformed_detections_gdf = GeoDataFrame(pd.DataFrame.from_records(transformed_detections), geometry='buffered_geometry')
+    transformed_detections_gdf = transformed_detections_gdf[~transformed_detections_gdf.geometry.is_empty]
 
     for dataset in DETECTIONS_FILES.keys():
         logger.info(f'Working on the {dataset} dataset...')
