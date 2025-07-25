@@ -6,10 +6,10 @@ prepare_coco_data.py:
   working_directory: .
   output_dir: outputs/detectron2
   image_dir: data/RCNE/panoramic_images/
-  COCO_files:
+  original_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250722.json
-  cached_validation:
-    RCNE: data/RCNE/Object_Detect_GT/coco_validator_cache_250724.json
+  validated_COCO_files:
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
   ratio_wo_annotations: 0
   make_other_dataset: True
   seed: 42

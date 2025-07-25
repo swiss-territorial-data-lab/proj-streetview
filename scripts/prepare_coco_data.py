@@ -1,6 +1,7 @@
 import cv2
 import json
 import os
+import sys
 from argparse import ArgumentParser
 from joblib import Parallel, delayed
 from loguru import logger
@@ -13,7 +14,7 @@ import pandas as pd
 from math import ceil
 
 from utils.constants import CATEGORIES, TILE_SIZE
-from utils.misc import assemble_coco_json, format_logger, segmentation_to_polygon
+from utils.misc import assemble_coco_json, format_logger, read_coco_dataset, segmentation_to_polygon
 
 logger = format_logger(logger)
 
@@ -122,8 +123,8 @@ def main(cfg_file_path):
     OUTPUT_DIR = cfg['output_dir']
     IMAGE_DIR = cfg['image_dir']
 
-    COCO_FILES_DICT = cfg['COCO_files']
-    CACHED_VALIDATION = cfg['cached_validation']
+    ORIGINAL_COCO_FILES_DICT = cfg['original_COCO_files']
+    VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     MAKE_OTH_DATASET = cfg['make_other_dataset'] if 'make_other_dataset' in cfg.keys() else False
     SEED = cfg['seed']
@@ -144,41 +145,36 @@ def main(cfg_file_path):
 
     logger.info(f"Read COCO files...")
     # Read full COCO dataset
-    images_and_annotations_df = pd.DataFrame()
-    for dataset_key, coco_file in COCO_FILES_DICT.items():
-        with open(coco_file, 'r') as fp:
-            coco_data = json.load(fp)
-            
-        images_df = pd.DataFrame.from_records(coco_data['images'])
-        if 'image_id' not in images_df.columns:
-            images_df.rename(columns={'id': 'image_id'}, inplace=True)
-        images_df["annotations"] = [[] for _ in range(len(images_df))]
-        for annotation in coco_data['annotations']:
-            images_df.loc[images_df['image_id'] == annotation['image_id'], 'annotations'].iloc[0].append(annotation)
+    original_imgs_and_anns_df = pd.DataFrame()
+    for _, coco_file in ORIGINAL_COCO_FILES_DICT.items():
+        images_df = read_coco_dataset(coco_file)
+        original_imgs_and_anns_df = pd.concat((original_imgs_and_anns_df, images_df), ignore_index=True)
 
-        images_and_annotations_df = pd.concat((images_and_annotations_df, pd.DataFrame(images_df)), ignore_index=True)
-
-    # Read validation infos
-    validation_df = pd.DataFrame()
-    for dataset_key, validation_file in CACHED_VALIDATION.items():
-        with open(validation_file) as fp:
-            validation_df = pd.concat((validation_df, pd.DataFrame.from_records(json.load(fp)["validation_status"]).transpose()), ignore_index=True)
+    # Read validated COCO dataset
+    valid_imgs_and_anns_df = pd.DataFrame()
+    for _, coco_file in VALIDATED_COCO_FILES_DICT.items():
+        images_df = read_coco_dataset(coco_file)
+        valid_imgs_and_anns_df = pd.concat((valid_imgs_and_anns_df, images_df), ignore_index=True)
 
     if DEBUG:
         logger.info("Debug mode activated. Only first 100 images are processed.")
-        images_and_annotations_df = images_and_annotations_df.head(100)
+        original_imgs_and_anns_df = original_imgs_and_anns_df.head(100)
+        valid_imgs_and_anns_df = valid_imgs_and_anns_df.head(150)
 
-    logger.info(f"Found {len(images_and_annotations_df)} images.")
+    logger.info(f"Found {len(valid_imgs_and_anns_df)} images for validated annotations.")
 
     logger.info("Splitting tiles into train, val and test sets based on ratio 70% / 15% / 15%...")
-    trn_tiles = images_and_annotations_df.sample(frac=0.7, random_state=SEED)
-    val_tiles = images_and_annotations_df[~images_and_annotations_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
-    tst_tiles = images_and_annotations_df[~images_and_annotations_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
+    trn_tiles = valid_imgs_and_anns_df.sample(frac=0.7, random_state=SEED)
+    val_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
+    tst_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
 
-    images_and_annotations_df["dataset"] = None
+    # Map dataset on the images
+    valid_imgs_and_anns_df["dataset"] = None
     for dataset, df in {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}.items():
-        images_and_annotations_df.loc[images_and_annotations_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
-    assert all(images_and_annotations_df["dataset"].notna()), "Not all images were assigned to a dataset"
+        valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+        original_imgs_and_anns_df.loc[original_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+    assert all(valid_imgs_and_anns_df["dataset"].notna()), "Not all images were assigned to a dataset"
+    original_imgs_and_anns_df.loc[original_imgs_and_anns_df.dataset.isna(), "dataset"] = "oth"
 
     logger.info(f"Found {len(trn_tiles)} tiles in train set, {len(val_tiles)} tiles in val set and {len(tst_tiles)} tiles in test set.")
     del trn_tiles, val_tiles, tst_tiles
@@ -192,7 +188,7 @@ def main(cfg_file_path):
     rejected_annotations_df = pd.DataFrame()
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
-    for image in tqdm(images_and_annotations_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(images_and_annotations_df)):
+    for image in tqdm(original_imgs_and_anns_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(original_imgs_and_anns_df)):
 
         tiles = []
         for i in range(PADDING_Y, IMAGE_HEIGHT - PADDING_Y, TILE_SIZE - OVERLAP_Y):
@@ -208,7 +204,19 @@ def main(cfg_file_path):
         # Clip annotations to tiles
         annotations = []
         for ann in image.annotations:
+            # Check if annotation is valid
+            rejected_annotation = True
+            validated_annotations = valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df.image_id==image.image_id, 'annotations'].iloc[0]
+            validated_ann = [a for a in validated_annotations if a["id"] == ann["id"]]
+            if len(validated_ann) == 1:
+                ann = validated_ann[0]
+                rejected_annotation = False
+            elif len(validated_ann) > 1:
+                logger.critical(f"Annotation {ann['id']} is not unique in validated annotations.")
+                sys.exit(1)
+
             for tile in tiles:
+                # Get tile coordinates
                 tile_min_x = int(tile["file_name"].split("_")[-2])
                 tile_max_x = tile_min_x + TILE_SIZE
                 tile_min_y = int(tile["file_name"].split("_")[-1].rstrip(".jpg"))
@@ -224,10 +232,6 @@ def main(cfg_file_path):
                 x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
                 y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
 
-                try:
-                    rejected_annotation = validation_df.loc[validation_df.index==ann['id'], "removed"].iloc[0]
-                except:
-                    rejected_annotation = True
                 if rejected_annotation:
                     rejected_annotations_df = pd.concat((rejected_annotations_df, pd.DataFrame.from_records([{
                         "id": ann["id"], "file_name": tile["file_name"], "bbox": [x1, y1, new_width, new_height]
@@ -318,7 +322,7 @@ def main(cfg_file_path):
         oth_tiles_df.drop(columns='original_image', inplace=True)
 
         _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
-                image, corresponding_tiles, pd.DataFrame(), IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
+                image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
             ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
         )
 
