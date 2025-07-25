@@ -54,16 +54,9 @@ def main(cfg_file_path):
         MODEL_ZOO_CHECKPOINT_URL = cfg['model_weights']['model_zoo_checkpoint_url']
     else:
         MODEL_ZOO_CHECKPOINT_URL = None
-    
-    # TODO: allow resuming from previous training
-    # if 'pth_file' in cfg['model_weights'].keys():
-    #     MODEL_PTH_FILE = cfg['model_weights']['pth_file']
-    # else:
-    #     MODEL_PTH_FILE = None
-    
-    if MODEL_ZOO_CHECKPOINT_URL == None:
-        logger.critical("A model zoo checkpoint URL (\"model_zoo_checkpoint_url\") must be provided")
-        sys.exit(1)
+        if not RESUME_TRAINING:
+            logger.critical("A model zoo checkpoint URL (\"model_zoo_checkpoint_url\") must be provided")
+            sys.exit(1)
     
     COCO_FILES_DICT = cfg['COCO_files']
     COCO_TRN_FILE = COCO_FILES_DICT['trn']
