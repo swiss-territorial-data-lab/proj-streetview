@@ -1,7 +1,6 @@
 # general
 geopandas
 loguru
-opencv-python
 pygeohash
 plotly
 scikit-learn

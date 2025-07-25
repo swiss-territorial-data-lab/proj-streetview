@@ -35,8 +35,7 @@ tune_yolo_model.py:
     patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
   
 tune_yolo_w_ray.py:
-  working_directory: outputs
-  output_folder: ray_tuning
+  output_folder: /home/gsalamin/Documents/GitHub/proj-streetview/outputs/ray_tune # relative path not supported
 
 plot_best.py:
   working_directory: outputs

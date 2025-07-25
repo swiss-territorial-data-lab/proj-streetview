@@ -42,10 +42,10 @@ assess_detections.py:
 
 visualize_results.py:
   working_directory: .
-  output_folder: outputs/OD/panoptic_eval/images_for_visualization
-  image_folder: data/RCNE/panoramic_images
+  output_folder: outputs/yolo/panoptic_eval/images_for_visualization
+  image_folder: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   tagged_COCO_files:
-    all:  outputs/OD/panoptic_eval/tagged_detections.json
+    all:  outputs/yolo/panoptic_eval/tagged_detections.json
     # trn: trn_COCO_panoptic_detections.json
     # val: val_COCO_panoptic_detections.json
     # tst: tst_COCO_panoptic_detections.json

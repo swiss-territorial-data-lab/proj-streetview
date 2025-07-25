@@ -38,7 +38,7 @@ def train_yolo(config):
         optimizer=config["optimizer"], # Optimiseur (SGD, Adam, etc.)
         patience=config["patience"],
         device=device,
-        workers=0                      # Pas de workers multi-thread pour éviter bugs Ray
+        workers=0,                      # Pas de workers multi-thread pour éviter bugs Ray
         **YOLO_TRAINING_PARAMS
     )
 
@@ -55,11 +55,9 @@ cfg_file_path = args.config_file
 with open(cfg_file_path) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
-WORKING_DIR = cfg["working_directory"]
 OUTPUT_DIR = cfg["output_folder"]
-YOLO_FILE = cfg["yolo_file"]
 
-os.chdir(WORKING_DIR)  # Répertoire du projet YOLO
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 #  Affiche le nombre de GPU disponibles
 print(f"Available GPUs: {torch.cuda.device_count()}")
@@ -85,7 +83,7 @@ search_space = {
 analysis = tune.run(
     train_yolo,                                  # Fonction à appeler
     config=search_space,                         # Espace de recherche
-    resources_per_trial={"cpu": 1, "gpu": 0.1},  # Ressources par expérience (fraction GPU)
+    resources_per_trial={"cpu": 1, "gpu": 0.5},  # Ressources par expérience (fraction GPU)
     num_samples=1,                                # Nombre de tirages (utile avec random/grid search)
-    local_dir=OUTPUT_DIR,                        # Dossier de sortie
+    storage_path=OUTPUT_DIR,                        # Dossier de sortie
 )

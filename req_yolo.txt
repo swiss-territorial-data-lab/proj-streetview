@@ -50,6 +50,8 @@ idna==3.10
     # via requests
 jinja2==3.1.6
     # via torch
+joblib==1.5.1
+    # via scikit-learn
 jsonschema==4.24.0
     # via ray
 jsonschema-specifications==2025.4.1
@@ -82,6 +84,7 @@ numpy==2.0.2
     #   opencv-python
     #   pandas
     #   pyogrio
+    #   scikit-learn
     #   scipy
     #   shapely
     #   tensorboard
@@ -127,9 +130,7 @@ nvidia-nvjitlink-cu12==12.6.85
 nvidia-nvtx-cu12==12.6.77
     # via torch
 opencv-python==4.12.0.88
-    # via
-    #   -r req_yolo.in
-    #   ultralytics
+    # via ultralytics
 packaging==25.0
     # via
     #   geopandas
@@ -204,8 +205,12 @@ rpds-py==0.26.0
     # via
     #   jsonschema
     #   referencing
+scikit-learn==1.7.1
+    # via -r req_yolo.in
 scipy==1.13.1
-    # via ultralytics
+    # via
+    #   scikit-learn
+    #   ultralytics
 sentry-sdk==2.32.0
     # via wandb
 shapely==2.0.7
@@ -224,6 +229,8 @@ tensorboard-data-server==0.7.2
     # via tensorboard
 tensorboardx==2.6.4
     # via ray
+threadpoolctl==3.6.0
+    # via scikit-learn
 torch==2.7.1
     # via
     #   torchvision
