@@ -1,0 +1,11 @@
+cadaster_control.py:
+  working_directory: C:\Users\gwena\Documents\STDL\2_En_cours\street_view\02_data\outputs
+  output_dir: cadaster_control
+  aoi_files:
+    RCNE: ../inputs/RCNE/AOI_NE.gpkg
+  detection_files:
+    RCNE: reprojected/triangulation_points_pred_demo.gpkg
+  cadaster_manhole_files:
+    RCNE: ../inputs/RCNE/objets_cadastre/chambres.gpkg
+  iou_threshold: 0.1
+  save_separate_datasets: True
