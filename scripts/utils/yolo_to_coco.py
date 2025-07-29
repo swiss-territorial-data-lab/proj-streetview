@@ -3,7 +3,7 @@ from tqdm import tqdm
 
 from pandas import DataFrame
 
-def yolo_to_coco_annotations(results, image_info_df=None, tqdm_disable=False):
+def yolo_to_coco_annotations(results, image_info_df=None, verbose=True):
     if isinstance(image_info_df, DataFrame):
         image_info_as_df = True
         _image_info_df = image_info_df.copy()
@@ -16,11 +16,11 @@ def yolo_to_coco_annotations(results, image_info_df=None, tqdm_disable=False):
     det_id = 0
     annotations = []
 
-    for result in tqdm(results, desc="Converting annotations", disable=tqdm_disable):
+    for result in tqdm(results, desc="Converting annotations", disable=(not verbose)):
         if image_info_as_df:
-            image_info = _image_info_df[_image_info_df['file_name'] == os.path.basename(result.path)]
-            image_id = int(image_info['id'].iloc[0])
-            image_file = image_info['file_name'].iloc[0]
+            _image_info = _image_info_df[_image_info_df['file_name'] == os.path.basename(result.path)]
+            image_id = int(_image_info['id'].iloc[0])
+            image_file = _image_info['file_name'].iloc[0]
 
         for det_index in range(len(result.boxes.cls)):
             category_id = int(result.boxes.cls[det_index])

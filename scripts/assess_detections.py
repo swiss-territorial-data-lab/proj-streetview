@@ -45,7 +45,7 @@ def main(cfg_file_path):
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
     IOU_THRESHOLD = cfg['iou_threshold'] if 'iou_threshold' in cfg.keys() else 0.25
     METHOD = cfg['metrics_method']
-    DEBUG = True
+    DEBUG = False
 
     os.chdir(WORKING_DIR)
     logger.info(f'Working directory set to {WORKING_DIR}.')
@@ -118,20 +118,25 @@ def main(cfg_file_path):
         if 'det_id' not in dets_df.columns:
             dets_df.rename(columns={'id': 'det_id', 'category_id': 'det_class'}, inplace=True)
         dets_df['geometry'] = dets_df['segmentation'].apply(lambda x: misc.segmentation_to_polygon(x))
-        no_geom_tmp = dets_df[dets_df.geometry.isna()]
-        if no_geom_tmp.shape[0] > 0:
+        no_geom_condition = dets_df.geometry.isna()
+        if no_geom_condition.sum() > 0:
             logger.warning(f"{no_geom_tmp.shape[0]} detections have no geometry in the {dataset} dataset with a max score of {round(no_geom_tmp['score'].max(), 2)}.")
+            dets_df = dets_df[~no_geom_condition]
         if DEBUG:
+            logger.warning(f"Debug mode is on. Only 1/3 of the detections are kept.")
             dets_df = dets_df.sample(frac=0.33, random_state=42)
 
         det_segmentation_df = pd.concat([
             det_segmentation_df, dets_df[['det_id', 'segmentation', 'bbox']].rename(columns={'segmentation': 'segmentation_dets', 'bbox': 'bbox_dets'})
         ])
         dets_df.drop(columns=['segmentation', 'bbox'], inplace=True)
-        dets_gdf_dict[dataset] = GeoDataFrame(dets_df[dets_df.geometry.notna()])
+
+        dets_gdf_dict[dataset] = GeoDataFrame(dets_df)
+        logger.info(f"{len(dets_gdf_dict[dataset])} detections were found in the {dataset} dataset.")
         nbr_dets += len(dets_gdf_dict[dataset])
 
-    logger.success(f"{DONE_MSG} {nbr_dets} tiles were found.")
+    assert det_segmentation_df.shape[0] == nbr_dets, "Number of detections and corresponding segmentations do not match."
+    logger.success(f"{DONE_MSG} {nbr_dets} detections were found.")
 
     del labels_df, all_aoi_tiles_df, dets_df, tiles_df_dict
 
@@ -301,6 +306,8 @@ def main(cfg_file_path):
     for dataset in metrics_dict.keys():
 
         tmp_dets_gdf = dets_gdf_dict[dataset][dets_gdf_dict[dataset].score >= selected_threshold].copy()
+        logger.info(f'Number of detections = {len(tmp_dets_gdf)}')
+        logger.info(f'Number of labels = {len(labels_gdf_dict[dataset])}')
 
         tagged_df_dict = metrics.get_fractional_sets(
             tmp_dets_gdf, 

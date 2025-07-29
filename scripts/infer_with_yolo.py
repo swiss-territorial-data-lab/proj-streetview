@@ -8,7 +8,7 @@ from yaml import FullLoader, load
 from pandas import DataFrame
 from ultralytics import YOLO
 
-from utils.constants import TILE_SIZE
+from utils.constants import DONE_MSG,TILE_SIZE
 from utils.misc import format_logger
 from utils.yolo_to_coco import yolo_to_coco_annotations
 
@@ -56,6 +56,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
     )
 
     coco_detections = yolo_to_coco_annotations(results, images_infos_df)
+    logger.success(f"Done! {len(coco_detections)} annotations were produced.")
 
     logger.info(f"Save annotations...")
     filepath = os.path.join(PROJECT, PROJECT_NAME, f'YOLO_{dataset}_detections.json')
@@ -64,4 +65,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
 
     written_files.append(filepath)
 
+logger.success(f"{DONE_MSG} The following files were written:")
+for filepath in written_files:
+    logger.success(filepath)
 logger.success(f"Done in {round(time() - tic, 2)} seconds.")
