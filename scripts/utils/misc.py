@@ -1,6 +1,5 @@
 import sys
 import json
-import pygeohash as pgh
 import networkx as nx
 
 from loguru import logger
@@ -101,33 +100,6 @@ def find_category(df):
         sys.exit(1)
     
     return df
-
-
-def geohash(row):
-    """Geohash encoding (https://en.wikipedia.org/wiki/Geohash) of a location (point).
-    If geometry type is a point then (x, y) coordinates of the point are considered. 
-    If geometry type is a polygon then (x, y) coordinates of the polygon centroid are considered. 
-    Other geometries are not handled at the moment    
-
-    Args:
-        row: geodaframe row
-
-    Raises:
-        Error: geometry error
-
-    Returns:
-        out (str): geohash code for a given geometry
-    """
-    
-    if row.geometry.geom_type == 'Point':
-        out = pgh.encode(latitude=row.geometry.y, longitude=row.geometry.x, precision=16)
-    elif row.geometry.geom_type == 'Polygon':
-        out = pgh.encode(latitude=row.geometry.centroid.y, longitude=row.geometry.centroid.x, precision=16)
-    else:
-        logger.error(f"{row.geometry.geom_type} type is not handled (only Point or Polygon geometry type)")
-        sys.exit()
-
-    return out
 
 
 def get_number_of_classes(coco_file):

@@ -3,7 +3,7 @@ SCATTER_PLOT_MODE = 'markers+lines'
 CATEGORIES = [{'id': 1, 'name': 'manhole', 'supercategory': 'round plate'}]
 TILE_SIZE = 512
 YOLO_TRAINING_PARAMS = {
-    'data': '/home/gsalamin/Documents/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml',
+    'data': '/mnt/data-volume-02/gsalamin/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml',
     'imgsz': TILE_SIZE,
     'multi_scale': True,
     'translate': 0,

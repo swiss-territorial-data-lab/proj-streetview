@@ -43,15 +43,21 @@ tune_yolo_w_ray.py:
 
 plot_best.py:
   working_directory: outputs
-  ray_results_dir: /home/gsalamin/ray_results
+  ray_results_dir: ray_tune
 
 train_yolo.py:
   working_directory: outputs
   project: yolo/train
   name: run
   model: yolo11s-seg.pt
-  best_parameters_path: /home/gsalamin/ray_results/train_yolo_2025-07-15_14-14-00/train_yolo_f3a76_00007_7_batch=20,lr0=0.0050,model=yolo11s-seg,optimizer=SGD,patience=25_2025-07-15_14-14-01/
+  best_parameters_path: /home/gsalamin/ray_results/train_yolo_2025-07-15_14-14-00/train_yolo_f3a76_00007_7_batch=20,lr0=0.0050,model=yolo11s-seg,optimizer=SGD,patience=25_2025-07-15_14-14-01/params.json
   resume_training: False
+
+validate_yolo.py:
+  working_directory: outputs
+  project: yolo/train
+  model: yolo/train/run00/weights/best.pt
+  best_parameters_path: /home/gsalamin/ray_results/train_yolo_2025-07-15_14-14-00/train_yolo_f3a76_00007_7_batch=20,lr0=0.0050,model=yolo11s-seg,optimizer=SGD,patience=25_2025-07-15_14-14-01/params.json
 
 infer_with_yolo.py:
   working_directory: outputs
