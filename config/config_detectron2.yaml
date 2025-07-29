@@ -5,18 +5,14 @@ get_stat_images.py:
 prepare_coco_data.py:
   working_directory: .
   image_dir: data/RCNE/panoramic_images/
-  COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250722.json
-  cached_validation:
-    RCNE: data/RCNE/Object_Detect_GT/coco_validator_cache_250724.json
-  ratio_wo_annotations: 0
+  original_COCO_files:
+    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+  validated_COCO_files:
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
+  ratio_wo_annotations: 0.25
+  make_other_dataset: True
   seed: 42
-  overwrite_images: True
-  tasks:
-    make_other_dataset: True
-    coco:
-      prepare_data: True
-      subfolder: outputs/detectron2
+  overwrite_images: False
 
 train_model.py:
   debug_mode: False
@@ -37,13 +33,13 @@ make_inference.py:
   working_directory: outputs/detectron2
   sample_tagged_img_subfolder: sample_tagged_images
   COCO_files:           # relative paths, w/ respect to the working_folder
-    # trn: COCO_trn.json
-    # val: COCO_val.json
-    # tst: COCO_tst.json
-    oth: COCO_oth.json
+    trn: COCO_trn.json
+    val: COCO_val.json
+    tst: COCO_tst.json
+    # oth: COCO_oth.json
   detectron2_config_file: ../../config/detectron2_config.yaml # path relative to the working_folder
   model_weights:
-    pth_file: ../../model/model_0020499.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
+    pth_file: logs/model_0014999.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
   image_metadata_json: img_metadata.json
   score_lower_threshold: 0.05
 

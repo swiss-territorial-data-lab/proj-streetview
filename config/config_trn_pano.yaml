@@ -49,7 +49,7 @@ visualize_results.py:
     # trn: trn_COCO_panoptic_detections.json
     # val: val_COCO_panoptic_detections.json
     # tst: tst_COCO_panoptic_detections.json
-  coco_file_for_images: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+  coco_file_for_images: data/RCNE/Object_Detect_GT/ne_COCO.json
   # image_ids: [
   #   4120,
   #   4121,

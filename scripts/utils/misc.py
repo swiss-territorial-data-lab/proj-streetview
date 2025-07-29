@@ -142,6 +142,34 @@ def make_groups(gdf):
     return groups
 
 
+def read_coco_dataset(coco_file_path):
+    """
+    Reads a COCO dataset from a JSON file and returns a DataFrame with images and their corresponding annotations.
+
+    Args:
+        coco_file_path (str): The file path to the COCO JSON file.
+
+    Returns:
+        pandas.DataFrame: A DataFrame containing image data with each image's annotations stored in a list within the 'annotations' column.
+
+    Notes:
+        - The function expects the COCO JSON to have 'images' and 'annotations' keys.
+        - The 'id' field in the images data is renamed to 'image_id' if not already present.
+    """
+
+    with open(coco_file_path, 'r') as fp:
+        coco_data = json.load(fp)
+        
+    images_df = DataFrame.from_records(coco_data['images'])
+    if 'image_id' not in images_df.columns:
+        images_df.rename(columns={'id': 'image_id'}, inplace=True)
+    images_df["annotations"] = [[] for _ in range(len(images_df))]
+    for annotation in coco_data['annotations']:
+        images_df.loc[images_df['image_id'] == annotation['image_id'], 'annotations'].iloc[0].append(annotation)
+
+    return images_df
+
+
 def segmentation_to_polygon(segm):
     """
     Convert a COCO-style segmentation into a shapely Polygon or MultiPolygon.

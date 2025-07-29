@@ -135,7 +135,6 @@ def main(cfg_file_path):
         logger.info(f"{len(dets_gdf_dict[dataset])} detections were found in the {dataset} dataset.")
         nbr_dets += len(dets_gdf_dict[dataset])
 
-    assert det_segmentation_df.shape[0] == nbr_dets, "Number of detections and corresponding segmentations do not match."
     logger.success(f"{DONE_MSG} {nbr_dets} detections were found.")
 
     del labels_df, all_aoi_tiles_df, dets_df, tiles_df_dict
