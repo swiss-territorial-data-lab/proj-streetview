@@ -41,7 +41,7 @@ def main(cfg_file_path):
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
     IOU_THRESHOLD = cfg['iou_threshold'] if 'iou_threshold' in cfg.keys() else 0.25
     METHOD = cfg['metrics_method']
-    DEBUG = True
+    DEBUG = False
 
     os.chdir(WORKING_DIR)
     logger.info(f'Working directory set to {WORKING_DIR}.')
@@ -118,6 +118,7 @@ def main(cfg_file_path):
         if no_geom_tmp.shape[0] > 0:
             logger.warning(f"{no_geom_tmp.shape[0]} detections have no geometry in the {dataset} dataset with a max score of {round(no_geom_tmp['score'].max(), 2)}.")
         if DEBUG:
+            logger.warning(f"{len(dets_gdf_dict[dataset])} detections were found in the {dataset} dataset.")
             dets_df = dets_df.sample(frac=0.33, random_state=42)
 
         det_segmentation_df = pd.concat([
@@ -127,7 +128,7 @@ def main(cfg_file_path):
         dets_gdf_dict[dataset] = GeoDataFrame(dets_df[dets_df.geometry.notna()])
         nbr_dets += len(dets_gdf_dict[dataset])
 
-    logger.success(f"{DONE_MSG} {nbr_dets} tiles were found.")
+    logger.success(f"{DONE_MSG} {nbr_dets} detections were found.")
 
     del labels_df, all_aoi_tiles_df, dets_df, tiles_df_dict
 

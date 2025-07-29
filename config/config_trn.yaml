@@ -13,7 +13,7 @@ prepare_coco_data.py:
   ratio_wo_annotations: 0.25
   make_other_dataset: True
   seed: 42
-  overwrite_images: True
+  overwrite_images: False
 
 train_model.py:
   debug_mode: False

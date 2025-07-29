@@ -72,9 +72,6 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
     achieved = True
 
     img = cv2.imread(os.path.join(image_dir, image))
-    if img is None:
-        logger.error(f"Image {image} not found")
-        return False
 
     h, w = img.shape[:2]
     assert h == image_height, f"Image height not {image_height} px"
@@ -208,6 +205,10 @@ def main(cfg_file_path):
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
     for image in tqdm(original_imgs_and_anns_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(original_imgs_and_anns_df)):
+            
+        if not os.path.exists(os.path.join(IMAGE_DIR, image.file_name)):
+            logger.error(f"Image {image.file_name} not found")
+            continue
 
         tiles = []
         for i in range(PADDING_Y, IMAGE_HEIGHT - PADDING_Y, TILE_SIZE - OVERLAP_Y):

@@ -66,15 +66,17 @@ if 'id' not in annotations_df.columns:
 
 logger.info("Let's tag some sample images...")
 if 'tag' in annotations_df.columns and any(annotations_df.tag.isna()):
+    score_threshold = annotations_df.loc[annotations_df.tag.notna(), 'score'].min()
+    logger.info(f'A threshold of {score_threshold} is applied on the score.')
     annotations_df.loc[annotations_df.tag.isna(), 'tag'] = 'oth'
+    annotations_df = annotations_df[annotations_df.score >= score_threshold]
+
 colors_dict = {
     "TP": (0, 255, 0),
     "FP": (247, 195, 79),
     "FN": (37, 168, 249),
     "oth": (0, 0, 0)
 }
-# https://stackoverflow.com/questions/50805634/how-to-create-mask-images-from-coco-dataset
-# https://opencv.org/blog/image-annotation-using-opencv/
 nbr_images_per_dataset = 50
 images_pro_dataset = {key: 0 for key in annotations_df["dataset"].unique()}
 nbr_images = nbr_images_per_dataset*len(images_pro_dataset.keys())
