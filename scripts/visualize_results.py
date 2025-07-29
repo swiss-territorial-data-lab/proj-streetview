@@ -7,6 +7,7 @@ from time import time
 from tqdm import tqdm
 from yaml import load, FullLoader
 
+from numpy import nan
 from pandas import DataFrame
 
 from utils.misc import format_logger
@@ -64,10 +65,13 @@ if 'id' not in annotations_df.columns:
     annotations_df['id'] = [det_id if det_id == None else label_id for det_id, label_id in zip(annotations_df.det_id, annotations_df.label_id)]
 
 logger.info("Let's tag some sample images...")
+if 'tag' in annotations_df.columns and any(annotations_df.tag.isna()):
+    annotations_df.loc[annotations_df.tag.isna(), 'tag'] = 'oth'
 colors_dict = {
     "TP": (0, 255, 0),
     "FP": (247, 195, 79),
-    "FN": (37, 168, 249)
+    "FN": (37, 168, 249),
+    "oth": (0, 0, 0)
 }
 # https://stackoverflow.com/questions/50805634/how-to-create-mask-images-from-coco-dataset
 # https://opencv.org/blog/image-annotation-using-opencv/
@@ -100,7 +104,8 @@ for coco_image in tqdm(sample_images_df.itertuples(), desc="Tagging images"):
             "trn": (bbox[0], bbox[1]-10),
             "val": (bbox[0], bbox[1] + 20),
             "tst": (bbox[0], bbox[1] + bbox[3] + 20),
-        }   
+            "oth": (bbox[0], bbox[1] + bbox[3] + 20)
+        }
         cv2.putText(im, ' '.join([ann.dataset, str(ann.id), str(round(ann.score, 2))] + ([ann.tag] if 'tag' in corresponding_annotations.columns else [])), text_position[ann.dataset], cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
     filepath = os.path.join(OUTPUT_DIR, output_filename)
     cv2.imwrite(filepath, im)

@@ -19,7 +19,7 @@ from utils.constants import CATEGORIES
 logger = misc.format_logger(logger)
 
 
-def group_annotations(transformed_detections_gdf):
+def group_annotations(transformed_detections_gdf, verbose=False):
     """
     Groups overlapping annotations in the transformed detections GeoDataFrame.
 
@@ -31,6 +31,7 @@ def group_annotations(transformed_detections_gdf):
     Args:
         transformed_detections_gdf (GeoDataFrame): A GeoDataFrame containing transformed 
         detections with geometry information.
+        verbose (bool, optional): Whether to display progress bars. Defaults to False.
 
     Returns:
         DataFrame: A DataFrame with the same columns as `transformed_detections_gdf`, 
@@ -39,19 +40,24 @@ def group_annotations(transformed_detections_gdf):
     """
 
     # Find overlapping pairs
-    self_join = sjoin(transformed_detections_gdf, transformed_detections_gdf, how='inner')
-    valid_self_join = self_join[
-        (self_join['id_left'] <= self_join['id_right'])
-        & (self_join['image_id_left'] == self_join['image_id_right'])
-        & (self_join['dataset_left'] == self_join['dataset_right'])
-    ].copy()
+    overlapping_dets_gdf = GeoDataFrame()
+    for image_id in tqdm(transformed_detections_gdf.image_id.unique(), desc="Find overlapping pairs", disable=(not verbose)):
+        subset_gdf = transformed_detections_gdf[transformed_detections_gdf.image_id==image_id]
+        self_join = sjoin(subset_gdf, subset_gdf, how='inner')
+        overlapping_dets_gdf = pd.concat([
+            overlapping_dets_gdf,
+            self_join[
+                (self_join['id_left'] <= self_join['id_right'])
+                & (self_join['dataset_left'] == self_join['dataset_right'])
+            ]
+        ], ignore_index=True)
 
     # Do groups because of segmentation on more than two tiles
-    groups = misc.make_groups(valid_self_join)
+    groups = misc.make_groups(overlapping_dets_gdf)
     group_index = {node: i for i, group in enumerate(groups) for node in group}
-    valid_self_join = valid_self_join.apply(lambda row: misc.assign_groups(row, group_index), axis=1)
+    overlapping_dets_gdf = overlapping_dets_gdf.apply(lambda row: misc.assign_groups(row, group_index), axis=1)
 
-    return valid_self_join
+    return overlapping_dets_gdf
 
 
 def make_new_annotation(group,groupped_pairs_df, buffer=1):
@@ -230,7 +236,7 @@ def main(cfg_file_path):
         subset_transformed_detections_gdf = transformed_detections_gdf[transformed_detections_gdf.dataset==dataset].copy()
 
         logger.info('Groupping overlapping detections...')
-        groupped_pairs_df = group_annotations(subset_transformed_detections_gdf)
+        groupped_pairs_df = group_annotations(subset_transformed_detections_gdf, verbose=True)
 
         merged_detections = []
         for group in tqdm(groupped_pairs_df.group_id.unique(), desc="Merge detections in groups"):
