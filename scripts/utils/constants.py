@@ -7,4 +7,5 @@ YOLO_TRAINING_PARAMS = {
     'imgsz': TILE_SIZE,
     'multi_scale': True,
     'translate': 0,
+    # 'single_cls': True
 }

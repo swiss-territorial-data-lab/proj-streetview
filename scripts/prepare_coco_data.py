@@ -89,7 +89,7 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
             i = int(tile_name.split("_")[-1].rstrip(".jpg"))
             j = int(tile_name.split("_")[-2])
             tile = np.zeros((TILE_SIZE, TILE_SIZE, 3), dtype=np.uint8)
-            tile[:] = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
+            tile[:] = img[i:i+TILE_SIZE, j:j+TILE_SIZE]     # deep copy
             assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, f"Tile shape not {TILE_SIZE} x {TILE_SIZE} px"
 
             # Draw a black mask on reject annotations

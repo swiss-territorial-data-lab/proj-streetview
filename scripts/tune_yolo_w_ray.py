@@ -14,6 +14,8 @@ from utils.misc import format_logger
 
 logger = format_logger(logger)
 
+# TODO: improve script based on https://docs.ultralytics.com/integrations/ray-tune/#ray-tune
+
 #  Fonction principale d’entraînement
 def train_yolo(config):
     """
