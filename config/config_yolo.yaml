@@ -2,7 +2,7 @@ prepare_coco_data.py:
   working_directory: outputs
   image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250625.json
+    RCNE: data/RCNE/Object_Detect_GT/coco_ne.json
   cached_validation:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250625.json
   ratio_wo_annotations: 0
@@ -15,14 +15,14 @@ prepare_coco_data.py:
       subfolder: coco_for_yolo_conversion
 
 coco_to_yolo.py:
-  working_directory: .
-  input_folder: outputs/coco_for_yolo_conversion
+  working_directory: outputs
+  input_folder: coco_for_yolo_conversion
   output_folder: datasets/RCNE_datasets_512
 
 redistribute_images.py:
   working_directory: outputs/coco_for_yolo_conversion
   image_folder: .
-  output_folder: ../../datasets/RCNE_datasets_512/images
+  output_folder: ../datasets/RCNE_datasets_512/images
   COCO_files:
     trn: trn.json
     val: val.json

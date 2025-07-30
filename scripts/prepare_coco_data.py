@@ -105,7 +105,7 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
         
             if prepare_coco and prepare_yolo:
                 tile_path = os.path.join(tasks_dict['coco']['subfolder'], tile_name)
-                achieved_coco = cv2.imwrite(tile_path, image)
+                achieved_coco = cv2.imwrite(tile_path, tile)
 
                 dest_path = os.path.join(tasks_dict['yolo']['subfolder'], os.path.basename(tile_name))
                 os.link(tile_path, dest_path)
@@ -114,11 +114,11 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
 
             elif prepare_coco:
                 tile_path = os.path.join(tasks_dict['coco']['subfolder'], tile_name)
-                achieved[image].append(cv2.imwrite(tile_path, image))
+                achieved[image].append(cv2.imwrite(tile_path, tile))
 
             elif prepare_yolo:
-                tile_path = os.path.join(tasks_dict['yolo']['subfolder'], tile_name)
-                achieved[image].append(cv2.imwrite(tile_path, image))
+                tile_path = os.path.join(tasks_dict['yolo']['subfolder'], os.path.basename(tile_name))
+                achieved[image].append(cv2.imwrite(tile_path, tile))
 
     return achieved
 
@@ -167,14 +167,15 @@ def main(cfg_file_path):
 
     TASKS = cfg['tasks']
     MAKE_OTHER_DATASET = TASKS['make_other_dataset']
+    TASKS.pop('make_other_dataset')
     PREPARE_COCO = TASKS['coco']['prepare_data'] if 'coco' in TASKS.keys() else False
     PREPARE_YOLO = TASKS['yolo']['prepare_data'] if 'yolo' in TASKS.keys() else False
 
     IMAGE_HEIGHT = 4000
     IMAGE_WIDTH = 8000
-    OVERLAP_X = 44
-    OVERLAP_Y = 8
-    PADDING_Y = 1248
+    OVERLAP_X = 224
+    OVERLAP_Y = 224
+    PADDING_Y = 736
     DEBUG = False
 
     if not PREPARE_COCO and not PREPARE_YOLO:
@@ -240,7 +241,7 @@ def main(cfg_file_path):
     gt_tiles_df = pd.DataFrame()
     oth_tiles_df = pd.DataFrame()
     clipped_annotations_df = pd.DataFrame()
-    rejected_annotations_df = pd.DataFrame()
+    rejected_annotations_df = pd.DataFrame(columns=['id', 'file_name', 'bbox'])
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
     for image in tqdm(original_imgs_and_anns_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(original_imgs_and_anns_df)):
@@ -383,6 +384,9 @@ def main(cfg_file_path):
             image, corresponding_tiles, rejected_annotations_df, IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES
         ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
     )
+    # for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
+    #     image_to_tiles(image, corresponding_tiles, rejected_annotations_df, IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES)
+    # del images_to_tiles_dict
     
     if MAKE_OTHER_DATASET:
         logger.info(f"Kept {oth_tiles_df.shape[0]} tiles without annotations in the other dataset.")
@@ -390,13 +394,9 @@ def main(cfg_file_path):
         oth_tiles_df.drop(columns='original_image', inplace=True)
 
         _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
-                image, corresponding_tiles, pd.DataFrame(), IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES
+                image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES
             ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
         )
-
-    # for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
-    #     image_to_tiles(image, corresponding_tiles, rejected_annotations_df, IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES)
-    # del images_to_tiles_dict
 
     duplicates = clipped_annotations_df.drop(columns='id').astype({'bbox': str, 'segmentation': str}, copy=True).duplicated()
     if any(duplicates):
@@ -436,7 +436,7 @@ def main(cfg_file_path):
     logger.success("Done! The following files have been created:")
     for file in written_files:
         logger.success(file)
-    logger.success(f"In addition, some tiles were written in {OUTPUT_DIRS}.")
+    logger.success(f"In addition, some tiles were written in {', '.join(OUTPUT_DIRS)}.")
 
     logger.info(f"Done in {round(time() - tic, 2)} seconds.")
 
