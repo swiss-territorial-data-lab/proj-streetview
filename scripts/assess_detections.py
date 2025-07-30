@@ -103,8 +103,8 @@ def main(cfg_file_path):
     logger.info("Loading detections...")
 
     dets_gdf_dict = {}
+    det_segm_df_dict = {}
     nbr_dets = 0
-    det_segmentation_df = pd.DataFrame()
     for dataset, dets_file in DETECTION_FILES.items():
         with open(os.path.join(PATH_DETECTIONS, dets_file)) as fp:
             dets_dict = json.load(fp)
@@ -126,9 +126,7 @@ def main(cfg_file_path):
             logger.warning(f"Debug mode is on. Only 1/3 of the detections are kept.")
             dets_df = dets_df.sample(frac=0.33, random_state=42)
 
-        det_segmentation_df = pd.concat([
-            det_segmentation_df, dets_df[['det_id', 'segmentation', 'bbox']].rename(columns={'segmentation': 'segmentation_dets', 'bbox': 'bbox_dets'})
-        ])
+        det_segm_df_dict[dataset] = dets_df[['det_id', 'segmentation', 'bbox']].rename(columns={'segmentation': 'segmentation_dets', 'bbox': 'bbox_dets'})
         dets_df.drop(columns=['segmentation', 'bbox'], inplace=True)
 
         dets_gdf_dict[dataset] = GeoDataFrame(dets_df)
@@ -340,7 +338,7 @@ def main(cfg_file_path):
             columns={'segmentation_labels': 'segmentation', 'bbox_labels': 'bbox'}
         )
         for key in ['tp_df', 'fp_df']:
-            tagged_df_dict[key] = tagged_df_dict[key].merge(det_segmentation_df, how='left', on='det_id').rename(
+            tagged_df_dict[key] = tagged_df_dict[key].merge(det_segm_df_dict[dataset], how='left', on='det_id').rename(
                 columns={'segmentation_dets': 'segmentation', 'bbox_dets': 'bbox'}
             )
         tagged_dets_gdf_dict[dataset] = pd.concat(tagged_df_dict.values())
