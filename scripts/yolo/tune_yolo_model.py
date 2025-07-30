@@ -2,6 +2,7 @@
 # https://www.digitalocean.com/community/tutorials/train-yolov5-custom-data#hyperparameter-config-file
 
 import os
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -9,6 +10,7 @@ from yaml import load, FullLoader
 
 from ultralytics import YOLO
 
+sys.path.insert(1, 'scripts')
 from utils.constants import YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 

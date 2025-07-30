@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -8,6 +9,7 @@ from yaml import FullLoader, load
 from pandas import DataFrame
 from ultralytics import YOLO
 
+sys.path.insert(1, 'scripts')
 from utils.constants import DONE_MSG,TILE_SIZE
 from utils.misc import format_logger
 from utils.yolo_to_coco import yolo_to_coco_annotations
@@ -39,6 +41,7 @@ os.chdir(WORKING_DIR)
 os.makedirs(os.path.join(PROJECT, PROJECT_NAME), exist_ok=True)
 written_files = []
 
+last_id = 0
 for dataset, path in DATASET_IMAGES_DIR.items():
     logger.info(f"Working on the dataset {dataset}...")
     logger.info('Get image infos...')
@@ -55,7 +58,8 @@ for dataset, path in DATASET_IMAGES_DIR.items():
         project=PROJECT, name=PROJECT_NAME, exist_ok=True, verbose=False, stream=True
     )
 
-    coco_detections = yolo_to_coco_annotations(results, images_infos_df)
+    coco_detections = yolo_to_coco_annotations(results, images_infos_df, start_id=last_id)
+    last_id = coco_detections[-1]['det_id']
     logger.success(f"Done! {len(coco_detections)} annotations were produced.")
 
     logger.info(f"Save annotations...")

@@ -1,14 +1,15 @@
-#  Imports des bibliothèques nécessaires
 import os
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from yaml import FullLoader, load
 
 import torch
 import ray
-from ray import tune                                       # Ray Tune pour optimisation d’hyperparamètres
+from ray import tune
 from ultralytics import YOLO
 
+sys.path.insert(1, 'scripts')
 from utils.constants import YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 

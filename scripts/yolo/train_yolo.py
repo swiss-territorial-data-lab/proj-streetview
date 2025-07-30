@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -7,6 +8,7 @@ from yaml import load, FullLoader
 
 from ultralytics import YOLO
 
+sys.path.insert(1, 'scripts')
 from utils.constants import YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 

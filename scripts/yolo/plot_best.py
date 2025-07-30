@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -7,6 +8,7 @@ from yaml import load, FullLoader
 
 import pandas as pd
 
+sys.path.insert(1, 'scripts')
 from utils.misc import format_logger
 
 logger = format_logger(logger)
