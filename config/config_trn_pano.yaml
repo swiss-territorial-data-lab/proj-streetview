@@ -6,7 +6,7 @@ transform_detections.py:
     trn: outputs/detectron2/trn_detections_at_0dot05_threshold.json
     val: outputs/detectron2/val_detections_at_0dot05_threshold.json
     tst: outputs/detectron2/tst_detections_at_0dot05_threshold.json
-    # oth: outputs/detectron2/oth_detections_at_0dot05_threshold.json
+    oth: outputs/detectron2/oth_detections_at_0dot05_threshold.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
   score_threshold: 0.05

@@ -51,17 +51,14 @@ def get_new_coordinate(initial_coor, tile_min):
     return max(min(initial_coor-tile_min, TILE_SIZE), 0)
 
 
-def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_height, image_width, image_dir, output_dir='outputs', overwrite=False):
+def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, output_dir='outputs', overwrite=False):
     """
     Cuts an image into tiles, masks pixels corresponding to rejected annotations and saves the tiles to disk.
 
     Args:
-        image (str): The name of the image file.
+        image_path (str): The path of the image file.
         corresponding_tiles (list): A list of paths to the tiles that the image should be cut into.
         rejected_annotations_df (DataFrame): A DataFrame containing annotations that should be rejected (masked) on the tiles.
-        image_height (int): The height of the image in pixels.
-        image_width (int): The width of the image in pixels.
-        image_dir (str): The directory where the image is stored.
         output_dir (str, optional): The directory where the tiles should be saved. Defaults to 'outputs'.
         overwrite (bool, optional): Whether to overwrite existing tiles. Defaults to False.
 
@@ -70,12 +67,13 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
     """
 
     achieved = True
+    if all(os.path.exists(os.path.join(output_dir, tile_path)) and not overwrite for tile_path in corresponding_tiles):
+        return True 
 
-    img = cv2.imread(os.path.join(image_dir, image))
-
-    h, w = img.shape[:2]
-    assert h == image_height, f"Image height not {image_height} px"
-    assert w == image_width, f"Image width not {image_width} px"
+    img = cv2.imread(os.path.join(image_path))
+    if img is None:
+        logger.error(f"Image {image_path} could not be read.")
+        return False
 
     for tile_path in corresponding_tiles:
         if not os.path.exists(os.path.join(output_dir, tile_path)) or overwrite:
@@ -97,16 +95,12 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
                     thickness=-1
                 )
                 
-            assert annotations_to_mask_df.empty or np.any(tile != img[i:i+TILE_SIZE, j:j+TILE_SIZE]), "Mask not applied"
-        
             achieved = cv2.imwrite(os.path.join(output_dir, tile_path), tile)
-            if not annotations_to_mask_df.empty:
-                test=1
 
     return achieved
 
 
-def select_low_tiles(tiles_df, excluded_height_ratio=2/3):
+def select_low_tiles(tiles_df, excluded_height_ratio=1/2):
     """
     Select tiles that are above a certain height ratio.
 
@@ -119,8 +113,8 @@ def select_low_tiles(tiles_df, excluded_height_ratio=2/3):
     """
     _tiles_df = tiles_df.copy()
     _tiles_df["row_level"] = _tiles_df["file_name"].apply(lambda x: int(x.split("_")[-1].rstrip(".jpg")))
-    max_height = _tiles_df["row_level"].max()
-    low_tiles_df = _tiles_df[_tiles_df["row_level"] > max_height*excluded_height_ratio]
+    low_tiles_df = _tiles_df[_tiles_df["row_level"] > TILE_SIZE*excluded_height_ratio].reset_index(drop=True)
+    low_tiles_df.drop(columns=["row_level"], inplace=True)
 
     return low_tiles_df
 
@@ -141,17 +135,17 @@ def main(cfg_file_path):
 
     ORIGINAL_COCO_FILES_DICT = cfg['original_COCO_files']
     VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files']
+    CLIPPING_PARAMS = cfg['clipping_params']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
-    MAKE_OTH_DATASET = cfg['make_other_dataset'] if 'make_other_dataset' in cfg.keys() else False
     SEED = cfg['seed']
+    MAKE_OTH_DATASET = cfg['make_other_dataset'] if 'make_other_dataset' in cfg.keys() else False
     OVERWRITE_IMAGES = cfg['overwrite_images']
 
-    IMAGE_HEIGHT = 4000
-    IMAGE_WIDTH = 8000
-    OVERLAP_X = 44
-    OVERLAP_Y = 8
-    PADDING_Y = 1248
     DEBUG = False
+
+    for dataset in CLIPPING_PARAMS.keys():
+        params = CLIPPING_PARAMS[dataset]
+        logger.info(f"Including an overlap of {round(params['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {dataset} dataset.")
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -162,8 +156,9 @@ def main(cfg_file_path):
     logger.info(f"Read COCO files...")
     # Read full COCO dataset
     original_imgs_and_anns_df = pd.DataFrame()
-    for _, coco_file in ORIGINAL_COCO_FILES_DICT.items():
+    for dataset, coco_file in ORIGINAL_COCO_FILES_DICT.items():
         images_df = read_coco_dataset(coco_file)
+        images_df["original_dataset"] = dataset
         original_imgs_and_anns_df = pd.concat((original_imgs_and_anns_df, images_df), ignore_index=True)
 
     # Read validated COCO dataset
@@ -201,21 +196,23 @@ def main(cfg_file_path):
     gt_tiles_df = pd.DataFrame()
     oth_tiles_df = pd.DataFrame()
     clipped_annotations_df = pd.DataFrame()
-    rejected_annotations_df = pd.DataFrame()
+    rejected_annotations_df = pd.DataFrame(columns=['id', 'file_name', 'bbox'])
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
     for image in tqdm(original_imgs_and_anns_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(original_imgs_and_anns_df)):
-            
-        if not os.path.exists(os.path.join(IMAGE_DIR, image.file_name)):
+
+        original_image = os.path.join(IMAGE_DIR[image.original_dataset], image.file_name)
+        if not os.path.exists(original_image):
             logger.error(f"Image {image.file_name} not found")
             continue
 
         tiles = []
-        for i in range(PADDING_Y, IMAGE_HEIGHT - PADDING_Y, TILE_SIZE - OVERLAP_Y):
-            for j in range(0, IMAGE_WIDTH - OVERLAP_X, TILE_SIZE - OVERLAP_X):
+        params = CLIPPING_PARAMS[image.original_dataset]
+        for i in range(params["padding_y"], params["height"] - params["padding_y"], TILE_SIZE - params["overlap_y"]):
+            for j in range(0, params["width"] - params["overlap_x"], TILE_SIZE - params["overlap_x"]):
                 new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                 tiles.append({
-                    "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset, "original_image": image.file_name
+                    "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset, "original_image": original_image
                 })
                 image_id += 1
 
@@ -306,7 +303,7 @@ def main(cfg_file_path):
                 nbr_tiles_without_ann = ceil(len(tiles_with_ann_df) * RATIO_WO_ANNOTATIONS/(1 - RATIO_WO_ANNOTATIONS))
             
                 tiles_without_ann_df = all_tiles_df[~condition_annotations]
-                low_tiles_df = select_low_tiles(tiles_without_ann_df, 2/3)
+                low_tiles_df = select_low_tiles(tiles_without_ann_df, 1/3)
                 if len(low_tiles_df) >= nbr_tiles_without_ann:
                     added_empty_tiles_df = low_tiles_df.sample(n=nbr_tiles_without_ann, random_state=SEED)
                 else:
@@ -328,7 +325,7 @@ def main(cfg_file_path):
 
         if MAKE_OTH_DATASET:
             tiles_without_ann_df = all_tiles_df[~(condition_annotations | all_tiles_df["file_name"].isin(selected_tiles))].copy()
-            tiles_with_ann_df = select_low_tiles(tiles_without_ann_df, 3/4)
+            tiles_with_ann_df = select_low_tiles(tiles_without_ann_df, 2/3)
             oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df], ignore_index=True)
 
             del tiles_without_ann_df
@@ -341,7 +338,7 @@ def main(cfg_file_path):
     gt_tiles_df.drop(columns='original_image', inplace=True)
 
     _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
-            image, corresponding_tiles, rejected_annotations_df, IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
+            image, corresponding_tiles, rejected_annotations_df, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
         ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
     )
     
@@ -351,12 +348,12 @@ def main(cfg_file_path):
         oth_tiles_df.drop(columns='original_image', inplace=True)
 
         _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
-                image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
+                image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
             ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
         )
 
     # for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
-    #     image_to_tiles(image, corresponding_tiles, rejected_annotations_df, IMAGE_HEIGHT, IMAGE_WIDTH, image_dir=IMAGE_DIR, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES)
+    #     image_to_tiles(image, corresponding_tiles, rejected_annotations_df, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES)
     # del images_to_tiles_dict
 
     duplicates = clipped_annotations_df.drop(columns='id').astype({'bbox': str, 'segmentation': str}, copy=True).duplicated()

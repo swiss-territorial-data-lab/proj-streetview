@@ -1,18 +1,35 @@
 get_stat_images.py:
   working_directory: .
-  input_folder: data/RCNE/panoramic_images/
+  input_folder: /mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/
 
 prepare_coco_data.py:
   working_directory: .
-  output_dir: outputs/detectron2
-  image_dir: data/RCNE/panoramic_images/
+  output_dir: outputs/detectron2_test
+  image_dir: 
+    RCNE: data/RCNE/panoramic_images/
+    SZH: /mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/
   original_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: data/SZH/zh_COCO_13033.json
   validated_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-  ratio_wo_annotations: 0.25
-  make_other_dataset: True
+    SZH: data/SZH/valid_zh_250731.json
+  clipping_params:
+    RCNE:
+      width: 8000
+      height: 4000
+      overlap_x: 44
+      overlap_y: 8
+      padding_y: 736
+    SZH:
+      width: 2048
+      height: 1024
+      overlap_x: 0
+      overlap_y: 0
+      padding_y: 0
+  ratio_wo_annotations: 0.5
   seed: 42
+  make_other_dataset: True
   overwrite_images: False
 
 train_model.py:
@@ -36,10 +53,10 @@ make_inference.py:
     trn: COCO_trn.json
     val: COCO_val.json
     tst: COCO_tst.json
-    # oth: COCO_oth.json
+    oth: COCO_oth.json
   detectron2_config_file: ../../config/detectron2_config.yaml # path relative to the working_folder
   model_weights:
-    pth_file: logs/model_0014999.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
+    pth_file: logs/model_0011999.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
   image_metadata_json: img_metadata.json
   score_lower_threshold: 0.05
 

@@ -104,7 +104,7 @@ for coco_image in tqdm(sample_images_df.itertuples(), desc="Tagging images"):
 
         text_position = {
             "trn": (bbox[0], bbox[1]-10),
-            "val": (bbox[0], bbox[1] + 20),
+            "val": (bbox[0], bbox[1] + bbox[3] + 20),
             "tst": (bbox[0], bbox[1] + bbox[3] + 20),
             "oth": (bbox[0], bbox[1] + bbox[3] + 20)
         }
