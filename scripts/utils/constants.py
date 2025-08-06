@@ -5,7 +5,10 @@ TILE_SIZE = 512
 YOLO_TRAINING_PARAMS = {
     'data': '/mnt/data-volume-02/gsalamin/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml',
     'imgsz': TILE_SIZE,
+    'batch': 25,
+    'patience': 10,
     'multi_scale': True,
     'translate': 0,
-    # 'single_cls': True
+    'single_cls': True,
+    'overlap_mask': False
 }

@@ -53,6 +53,7 @@ metrics = model.val(batch=batch_size, split='test', plots=True, project=PROJECT,
 metrics_df = concat([metrics_df, metrics.to_df()], ignore_index=True)
 
 logger.info(f"Save metrics to {filepath}...")
-metrics_df.to_csv(filepath)
+metrics_df['dataset'] = ['val', 'tst']
+metrics_df.to_csv(filepath, index=False)
 
 logger.success(f"Done in {round(time() - tic, 2)} seconds.")

@@ -1,11 +1,11 @@
 prepare_coco_data.py:
   working_directory: outputs
   image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
-  COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/coco_ne.json
-  cached_validation:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250625.json
-  ratio_wo_annotations: 0
+  original_COCO_files:
+    RCNE: ../data/RCNE/Object_Detect_GT/ne_COCO.json
+  validated_COCO_files:
+    RCNE: ../data/RCNE/Object_Detect_GT/valid_ne_250725.json
+  ratio_wo_annotations: 0.45
   seed: 42
   overwrite_images: False
   tasks:
@@ -39,7 +39,7 @@ tune_yolo_model.py:
     patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
   
 tune_yolo_w_ray.py:
-  output_folder: /home/gsalamin/Documents/GitHub/proj-streetview/outputs/ray_tune # relative path not supported
+  output_folder: /mnt/data-volume-02/gsalamin/GitHub/proj-streetview/outputs/ray_tune # relative path not supported
 
 plot_best.py:
   working_directory: outputs
@@ -49,20 +49,19 @@ train_yolo.py:
   working_directory: outputs
   project: yolo/train
   name: run
-  model: yolo11s-seg.pt
-  best_parameters_path: /home/gsalamin/ray_results/train_yolo_2025-07-15_14-14-00/train_yolo_f3a76_00007_7_batch=20,lr0=0.0050,model=yolo11s-seg,optimizer=SGD,patience=25_2025-07-15_14-14-01/params.json
+  best_parameters_path: ray_tune/train_yolo_2025-07-18_15-01-30/train_yolo_15786_00029_29_batch=25,lr0=0.0050,lrf=0.0050,model=yolo11s-seg,optimizer=SGD,patience=10_2025-07-18_15-01-31/params.json
   resume_training: False
 
 validate_yolo.py:
   working_directory: outputs
   project: yolo/train
-  model: yolo/train/run00/weights/best.pt
-  best_parameters_path: /home/gsalamin/ray_results/train_yolo_2025-07-15_14-14-00/train_yolo_f3a76_00007_7_batch=20,lr0=0.0050,model=yolo11s-seg,optimizer=SGD,patience=25_2025-07-15_14-14-01/params.json
+  model: yolo/train/run01/weights/epoch40.pt
+  best_parameters_path: ray_tune/train_yolo_2025-07-18_15-01-30/train_yolo_15786_00029_29_batch=25,lr0=0.0050,lrf=0.0050,model=yolo11s-seg,optimizer=SGD,patience=10_2025-07-18_15-01-31/params.json
 
 infer_with_yolo.py:
   working_directory: outputs
   project: yolo/infer
-  model: yolo/train/run00/weights/best.pt
+  model: yolo/train/run01/weights/epoch40.pt
   dataset_images_folder:
     trn: datasets/RCNE_datasets_512/images/trn
     val: datasets/RCNE_datasets_512/images/val
@@ -79,7 +78,7 @@ assess_detections.py:
       trn: trn.json
       val: val.json
       tst: tst.json
-    path_detections: infer/run00
+    path_detections: infer/run01
     detections_files:
       trn: YOLO_trn_detections.json
       val: YOLO_val_detections.json

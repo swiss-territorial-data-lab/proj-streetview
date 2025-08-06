@@ -1,11 +1,11 @@
 transform_detections.py:
   working_directory: .
-  output_folder: outputs/yolo/infer/run00
+  output_folder: outputs/yolo/infer/run01
   image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   detections_files:
-    trn: outputs/yolo/infer/run00/YOLO_trn_detections.json
-    val: outputs/yolo/infer/run00/YOLO_val_detections.json
-    tst: outputs/yolo/infer/run00/YOLO_tst_detections.json
+    trn: outputs/yolo/infer/run01/YOLO_trn_detections.json
+    val: outputs/yolo/infer/run01/YOLO_val_detections.json
+    tst: outputs/yolo/infer/run01/YOLO_tst_detections.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
   score_threshold: 0.05
@@ -33,7 +33,7 @@ assess_detections.py:
       trn: trn_COCO_panoptic_labels.json
       val: val_COCO_panoptic_labels.json
       tst: tst_COCO_panoptic_labels.json
-    path_detections: infer/run00
+    path_detections: infer/run01
     detections_files:
       trn: trn_COCO_panoptic_detections.json
       val: val_COCO_panoptic_detections.json

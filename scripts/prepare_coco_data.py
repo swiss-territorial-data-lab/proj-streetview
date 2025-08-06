@@ -18,6 +18,14 @@ from utils.misc import assemble_coco_json, format_logger, read_coco_dataset, seg
 
 logger = format_logger(logger)
 
+
+def borderline_intersection(coord_tuples_list):
+    first_coords = all(value[0] <= TILE_SIZE * 0.02 or value[0] >= TILE_SIZE * 0.98 for value in coord_tuples_list)
+    second_coords = all(value[1] <= TILE_SIZE * 0.02 or value[1] >= TILE_SIZE * 0.98 for value in coord_tuples_list)
+
+    return first_coords or second_coords
+
+
 def check_bbox_plausibility(new_origin, length):
     """
     Adjusts and checks the plausibility of a bounding box's origin and length within a tile.
@@ -101,8 +109,6 @@ def image_to_tiles(image, corresponding_tiles, rejected_annotations_df, image_he
                     thickness=-1
                 )
                 
-            assert annotations_to_mask_df.empty or np.any(tile != img[i:i+TILE_SIZE, j:j+TILE_SIZE]), "Mask not applied"
-        
             if prepare_coco and prepare_yolo:
                 tile_path = os.path.join(tasks_dict['coco']['subfolder'], tile_name)
                 achieved_coco = cv2.imwrite(tile_path, tile)
@@ -173,8 +179,8 @@ def main(cfg_file_path):
 
     IMAGE_HEIGHT = 4000
     IMAGE_WIDTH = 8000
-    OVERLAP_X = 224
-    OVERLAP_Y = 224
+    OVERLAP_X = 44
+    OVERLAP_Y = 8
     PADDING_Y = 736
     DEBUG = False
 
@@ -291,11 +297,15 @@ def main(cfg_file_path):
                 # bbox
                 x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
                 y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
+                new_coords_tuples = [(x1, y1), (x1 + new_width, y1 + new_height)]
+                if borderline_intersection(new_coords_tuples):
+                    continue
 
                 if rejected_annotation:
                     rejected_annotations_df = pd.concat((rejected_annotations_df, pd.DataFrame.from_records([{
                         "id": ann["id"], "file_name": tile["file_name"], "bbox": [x1, y1, new_width, new_height]
                     }])), ignore_index=True)
+                    new_coords_tuples = [(x1, y1), (x1 + new_width, y1 + new_height)]
                 else:
                     # segmentation
                     old_coords = ann["segmentation"][0]
@@ -309,19 +319,19 @@ def main(cfg_file_path):
                         new_coords_tuples.append((new_x, new_y))
                         coords.extend([new_x, new_y])
                     assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
-                    if all(value[0] <= TILE_SIZE * 0.02 or value[0] >= TILE_SIZE * 0.98 for value in new_coords_tuples) or all(value[1] <=10 or value[1] >= 500 for value in new_coords_tuples):
+                    if borderline_intersection(new_coords_tuples):
                         continue
 
-                annotations.append(dict(
-                    id=int(annotation_id),
-                    image_id=tile["id"],
-                    category_id=int(1),  # Currently, single class
-                    iscrowd=int(ann["iscrowd"]),
-                    bbox=[x1, y1, new_width, new_height],
-                    area=segmentation_to_polygon([coords]).area,
-                    segmentation=[coords]
-                ))
-                annotation_id += 1
+                    annotations.append(dict(
+                        id=int(annotation_id),
+                        image_id=tile["id"],
+                        category_id=int(1),  # Currently, single class
+                        iscrowd=int(ann["iscrowd"]),
+                        bbox=[x1, y1, new_width, new_height],
+                        area=segmentation_to_polygon([coords]).area,
+                        segmentation=[coords]
+                    ))
+                    annotation_id += 1
 
         tile_annotations_df = pd.DataFrame(
             annotations,

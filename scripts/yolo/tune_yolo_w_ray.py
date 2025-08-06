@@ -35,11 +35,9 @@ def train_yolo(config):
 
     #  Lance l’entraînement avec les hyperparamètres fournis
     _ = model.train(
-        epochs=100,                     # Nombre d’époques
+        epochs=config["epochs"],                     # Nombre d’époques
         lr0=config["lr0"],             # Taux d’apprentissage initial
-        batch=config["batch"],         # Taille de batch
         optimizer=config["optimizer"], # Optimiseur (SGD, Adam, etc.)
-        patience=config["patience"],
         device=device,
         workers=0,                      # Pas de workers multi-thread pour éviter bugs Ray
         **YOLO_TRAINING_PARAMS
@@ -74,19 +72,17 @@ print(ray.cluster_resources())
 
 # 離 Espace de recherche (grille simple ici, peut être étendu)
 search_space = {
-    "model": tune.grid_search(["yolo11m-seg", "yolo11s-seg"]),
+    "model": tune.grid_search(["yolo11s-seg"]),
     "lr0": tune.grid_search([0.005, 0.01, 0.05]),
-    "lrf": tune.grid_search([0.005, 0.01, 0.05]),
-    "batch": tune.grid_search([5, 15, 25]),
     "optimizer": tune.grid_search(["SGD", "Adam"]),
-    'patience': tune.grid_search([10, 25]),
+    "epochs": tune.grid_search([50, 100]),
 }
 
 # ⚙️ Lance les expériences Ray Tune
 analysis = tune.run(
     train_yolo,                                  # Fonction à appeler
     config=search_space,                         # Espace de recherche
-    resources_per_trial={"cpu": 1, "gpu": 0.5},  # Ressources par expérience (fraction GPU)
+    resources_per_trial={"cpu": 1, "gpu": 1},  # Ressources par expérience (fraction GPU)
     num_samples=1,                                # Nombre de tirages (utile avec random/grid search)
     storage_path=OUTPUT_DIR,                        # Dossier de sortie
 )

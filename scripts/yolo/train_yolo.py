@@ -34,22 +34,22 @@ with open(args.config_file) as fp:
 WORKING_DIR = cfg['working_directory']
 # OUTPUT_DIR = cfg['output_folder']
 
-YOLO_FILE = cfg['yolo_file']
-MODEL = cfg['model']
-RESUME_TRAINING = cfg['resume_training']
-
 PROJECT = cfg['project']
-PROJECT_NAME = cfg['project_name']
+PROJECT_NAME = cfg['name']
 BEST_PARAMETERS_PATH = cfg['best_parameters_path']
+
+RESUME_TRAINING = cfg['resume_training']
 
 os.chdir(WORKING_DIR)
 # os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 print(f"Available GPUs: {torch.cuda.device_count()}")
 
-model = YOLO(MODEL)
 with open(BEST_PARAMETERS_PATH) as fp:
     best_parameters = json.load(fp)
+
+model = YOLO(best_parameters['model'])
+best_parameters.pop('model')
 
 model.train(
     project=PROJECT,
@@ -57,7 +57,7 @@ model.train(
     save=True,
     save_period=5,
     plots=True,
-    resume=RESUME_TRAINING
-    **YOLO_TRAINING_PARAMS
+    resume=RESUME_TRAINING,
+    **YOLO_TRAINING_PARAMS,
     **best_parameters
     )
