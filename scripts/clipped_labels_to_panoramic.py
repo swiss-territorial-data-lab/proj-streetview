@@ -28,9 +28,9 @@ def main(cfg_file_path):
 
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder']
-    IMAGE_DIR = cfg['image_dir']
     CLIPPED_LABELS_FILES = cfg['labels_files']
     PANOPTIC_COCO_FILES = cfg['panoptic_coco_files']
+    ID_CORRESPONDENCE = cfg['id_correspondence']
 
     BUFFER = 1
 
@@ -48,17 +48,14 @@ def main(cfg_file_path):
         dataset_labels_df['dataset'] = dataset_key
         clipped_labels_df = pd.concat([clipped_labels_df, dataset_labels_df], ignore_index=True)
 
-    images_df = pd.DataFrame()
-    for coco_file in PANOPTIC_COCO_FILES.values():
-        with open(coco_file) as fp:
-            coco_data = json.load(fp)
-        images_df = pd.concat((images_df, pd.DataFrame.from_records(coco_data['images']).rename(columns={'id': 'image_id'})), ignore_index=True)
+    id_correspondence_df = pd.read_csv(ID_CORRESPONDENCE)
+    images_df = trans_dets.read_image_info(PANOPTIC_COCO_FILES, id_correspondence_df)
 
-    del coco_data, dataset_labels_df, tiles_df
+    del dataset_labels_df, tiles_df
 
     transformed_labels= []
     for tile_name in tqdm(clipped_labels_df['file_name'].unique(), desc="Tranform labels back to panoptic images"):
-        transformed_labels.extend(trans_dets.transform_annotations(tile_name, clipped_labels_df, images_df, images_dir=IMAGE_DIR, buffer=BUFFER))
+        transformed_labels.extend(trans_dets.transform_annotations(tile_name, clipped_labels_df, images_df, buffer=BUFFER))
 
     transformed_labels_gdf = GeoDataFrame(pd.DataFrame.from_records(transformed_labels), geometry='buffered_geometry')
 

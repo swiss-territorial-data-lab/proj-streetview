@@ -13,7 +13,7 @@ from shapely.geometry import MultiPolygon, Polygon
 from statistics import median
 
 import utils.misc as misc
-from utils.constants import CATEGORIES
+from utils.constants import CATEGORIES, IMAGE_DIR
 
 logger = misc.format_logger(logger)
 
@@ -126,7 +126,39 @@ def polygon_to_segmentation(multipolygon):
     return segmentation
 
 
-def transform_annotations(tile_name, annotations_df, images_df, images_dir='images', buffer=1, id_field='id', category_field='category_id'):
+def read_image_info(coco_file_path_dict, id_correspondence_df):
+    """
+    Reads image information from multiple COCO JSON files and merges it with an ID correspondence DataFrame.
+
+    Args:
+        coco_file_path_dict (dict): A dictionary where keys are dataset identifiers and values are paths to
+                                    COCO JSON files containing image data.
+        id_correspondence_df (DataFrame): A DataFrame containing ID correspondence information with columns
+                                          for 'dataset', 'original_id', and 'image_id'.
+
+    Returns:
+        DataFrame: A DataFrame containing combined image information from all specified COCO JSON files,
+                   including a 'basename' column with the base filenames.
+    """
+
+    images_df = pd.DataFrame()
+    for dataset_key, coco_file in coco_file_path_dict.items():
+        with open(coco_file) as fp:
+            coco_data = json.load(fp)['images']
+
+        tmp_df = pd.DataFrame(coco_data)
+        tmp_df = tmp_df.merge(
+            id_correspondence_df[id_correspondence_df.dataset==dataset_key], 
+            how='left', left_on='image_id', right_on='original_id'
+        ).drop(columns=['original_id','image_id_x']).rename(columns={'image_id_y': 'image_id'})
+        images_df = pd.concat((images_df, tmp_df), ignore_index=True)
+
+    images_df['basename'] = images_df.file_name.apply(lambda x: os.path.basename(x))
+
+    return images_df
+
+
+def transform_annotations(tile_name, annotations_df, images_df, buffer=1, id_field='id', category_field='category_id'):
     """
     Transform COCO annotations on a tile to their original image and pixel coordinates.
 
@@ -134,19 +166,29 @@ def transform_annotations(tile_name, annotations_df, images_df, images_dir='imag
         tile_name (str): The name of the tile, including the directory and extension.
         annotations_df (DataFrame): A DataFrame containing the COCO annotations for the tile.
         images_df (DataFrame): A DataFrame containing information about the original images.
-        images_dir (str, optional): The directory where the images are stored. Defaults to 'images'.
         buffer (int, optional): The amount of pixels to buffer the geometry of each annotation. Defaults to 1.
         id_field (str, optional): The name of the column in annotations_df containing the annotation ID. Defaults to 'id'.
         category_field (str, optional): The name of the column in annotations_df containing the category ID. Defaults to 'category_id'.
 
     Returns:
         list: A list of dictionaries, each representing an annotation on the original image.
+
+    Raises:
+        ValueError: If no image is found with the same name as the tile.
+        ValueError: If multiple images are found with the same name.
     """
     
     name_parts = tile_name.rstrip('.jpg').split('_')
-    original_name = os.path.join(images_dir, os.path.basename('_'.join(name_parts[:-2]) + '.jpg'))
+    original_name = os.path.basename('_'.join(name_parts[:-2]) + '.jpg')
     tile_origin_x, tile_origin_y = int(name_parts[-2]), int(name_parts[-1])
 
+    corresponding_images = images_df.loc[images_df.basename==original_name, 'image_id']
+    if len(corresponding_images) == 1:
+        image_id = corresponding_images.iloc[0]
+    elif len(corresponding_images) > 1:
+        raise ValueError(f"Multiple images with the same name: {original_name}")
+    else:
+        raise ValueError(f"No image with the name: {original_name}")
     annotations_on_tiles_df = annotations_df[annotations_df.file_name==tile_name].copy()
     annotations_on_tiles_list = []
     for ann in annotations_on_tiles_df.itertuples():
@@ -161,8 +203,6 @@ def transform_annotations(tile_name, annotations_df, images_df, images_dir='imag
         # Buffer geometry to facilitate overlap in the next step
         buffered_geom = misc.segmentation_to_polygon(ann_segmentation).buffer(buffer)
         ann_geohash = shp.to_wkb(buffered_geom)
-
-        image_id = images_df.loc[images_df.file_name==os.path.basename(original_name), 'image_id'].iloc[0]
 
         annotations_on_tiles_list.append({
             'id': getattr(ann, id_field),
@@ -192,9 +232,9 @@ def main(cfg_file_path):
 
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder']
-    IMAGE_DIR = cfg['image_dir']
     DETECTIONS_FILES = cfg['detections_files']
     PANOPTIC_COCO_FILES = cfg['panoptic_coco_files']
+    ID_CORRESPONDENCE = cfg['id_correspondence']
 
     SCORE_THRESHOLD = cfg['score_threshold']
     BUFFER = 1
@@ -214,20 +254,13 @@ def main(cfg_file_path):
     detections_df = detections_df[detections_df.score >= SCORE_THRESHOLD]
     logger.info(f"{len(detections_df)} detections are left after thresholding on the score.")
 
-    images_df = pd.DataFrame()
-    for coco_file in PANOPTIC_COCO_FILES.values():
-        with open(coco_file) as fp:
-            coco_data = json.load(fp)['images']
-
-        images_df = pd.concat((images_df, pd.DataFrame(coco_data)), ignore_index=True)
-
-    del coco_data
-    images_df.rename(columns={'id': 'image_id'}, inplace=True)
+    id_correspondence_df = pd.read_csv(ID_CORRESPONDENCE)
+    images_df = read_image_info(PANOPTIC_COCO_FILES, id_correspondence_df)
 
     transformed_detections= []
     for tile_name in tqdm(detections_df['file_name'].unique(), desc="Tranform detections back to panoptic images"):
         transformed_detections.extend(
-            transform_annotations(tile_name, detections_df, images_df, images_dir=IMAGE_DIR, buffer=BUFFER, id_field='det_id', category_field='det_class')
+            transform_annotations(tile_name, detections_df, images_df, buffer=BUFFER, id_field='det_id', category_field='det_class')
         )
 
     transformed_detections_gdf = GeoDataFrame(pd.DataFrame.from_records(transformed_detections), geometry='buffered_geometry')

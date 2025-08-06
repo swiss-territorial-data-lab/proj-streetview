@@ -10,6 +10,7 @@ from yaml import load, FullLoader
 from numpy import nan
 from pandas import DataFrame
 
+from utils.constants import IMAGE_DIR
 from utils.misc import format_logger
 
 logger = format_logger(logger)
@@ -28,7 +29,6 @@ with open(args.config_file) as fp:
 
 WORKING_DIR = cfg['working_directory']
 OUTPUT_DIR = cfg['output_folder']
-IMAGE_DIR = cfg['image_folder']
 
 TAGGED_COCO_FILES = cfg['tagged_COCO_files']
 
@@ -45,16 +45,17 @@ annotations = []
 for dataset in TAGGED_COCO_FILES.keys():
     with open(TAGGED_COCO_FILES[dataset]) as fp:
         coco_data = json.load(fp)
-        if isinstance(coco_data, dict):
-            images.extend(coco_data['images'])
-            annotations.extend(coco_data['annotations'])
-            logger.info(f"Dataset {dataset} has {len(coco_data['images'])} images and {len(coco_data['annotations'])} annotations.")
-        else:
-            annotations.extend(coco_data)
-            with open(cfg['coco_file_for_images']) as fp:
-                image_info =json.load(fp)['images']
+    if isinstance(coco_data, dict):
+        images.extend(coco_data['images'])
+        annotations.extend(coco_data['annotations'])
+        logger.info(f"Dataset {dataset} has {len(coco_data['images'])} images and {len(coco_data['annotations'])} annotations.")
+    else:
+        annotations.extend(coco_data)
+        for im_dataset in cfg['coco_file_for_images'].keys():
+            with open(cfg['coco_file_for_images'][im_dataset]) as fp:
+                image_info = json.load(fp)['images']
             images.extend(image_info)
-            logger.info(f"Dataset {dataset} has {len(image_info)} images and {len(coco_data)} annotations.")
+        logger.info(f"Dataset {dataset} has {len(image_info)} images and {len(coco_data)} annotations.")
 
 del coco_data
 
@@ -95,8 +96,14 @@ for coco_image in tqdm(sample_images_df.itertuples(), desc="Tagging images"):
         continue
     images_pro_dataset[dataset] += 1
 
+    image_dir = IMAGE_DIR[coco_image.dataset]
+
     output_filename = f'{dataset}_det_{coco_image.file_name.split("/")[-1]}'.replace('tif', 'png')
-    im = cv2.imread(coco_image.file_name if str(coco_image.file_name).startswith(IMAGE_DIR) else os.path.join(IMAGE_DIR, coco_image.file_name))
+    input_path = os.path.join(image_dir, os.path.basename(coco_image.file_name))
+    im = cv2.imread(input_path)
+    if im is None:
+        logger.warning(f"Image {input_path} not found.")
+        continue
     for ann in corresponding_annotations.itertuples():
         if 'tag' in corresponding_annotations.columns:
             color = colors_dict[ann.tag]

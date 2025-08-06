@@ -12,3 +12,8 @@ YOLO_TRAINING_PARAMS = {
     'single_cls': True,
     'overlap_mask': False
 }
+IMAGE_DIR = {
+    'RCNE': '/mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano/',
+    'SZH': '/mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/'
+}
+    

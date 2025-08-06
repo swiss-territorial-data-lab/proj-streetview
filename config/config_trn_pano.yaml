@@ -8,7 +8,9 @@ transform_detections.py:
     tst: outputs/yolo/infer/run01/YOLO_tst_detections.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
-  score_threshold: 0.05
+    SZH: data/SZH/valid_zh_250731.json
+  id_correspondence: outputs/detectron2_both/original_ids.csv
+  score_threshold: 0.20
 
 
 clipped_labels_to_panoramic.py:
@@ -21,6 +23,8 @@ clipped_labels_to_panoramic.py:
     tst: outputs/coco_for_yolo_conversion/tst.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+    SZH: data/SZH/valid_zh_250731.json
+  id_correspondence: outputs/detectron2_both/original_ids.csv
 
 
 assess_detections.py:
@@ -43,13 +47,15 @@ assess_detections.py:
 visualize_results.py:
   working_directory: .
   output_folder: outputs/yolo/panoptic_eval/images_for_visualization
-  image_folder: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   tagged_COCO_files:
     tagged:  outputs/yolo/panoptic_eval/tagged_detections.json
     # trn: trn_COCO_panoptic_detections.json
     # val: val_COCO_panoptic_detections.json
     # tst: tst_COCO_panoptic_detections.json
-  coco_file_for_images: data/RCNE/Object_Detect_GT/ne_COCO.json
+  coco_file_for_images:
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
+      tst: tst_COCO_panoptic_detections.json
   # image_ids: [
   #   4120,
   #   4121,
