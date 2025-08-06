@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from math import ceil
 
-from utils.constants import CATEGORIES, TILE_SIZE
+from utils.constants import CATEGORIES, IMAGE_DIR, TILE_SIZE
 from utils.misc import assemble_coco_json, format_logger, read_coco_dataset, segmentation_to_polygon
 
 logger = format_logger(logger)
@@ -106,7 +106,7 @@ def select_low_tiles(tiles_df, excluded_height_ratio=1/2):
 
     Args:
         tiles_df (DataFrame): A DataFrame containing the tiles.
-        excluded_height_ratio (float, optional): The height ratio above which tiles should be excluded. Defaults to 2/3.
+        excluded_height_ratio (float, optional): The height ratio under which tiles should be excluded. Defaults to 1/2.
 
     Returns:
         DataFrame: A DataFrame containing the selected tiles.
@@ -131,7 +131,6 @@ def main(cfg_file_path):
 
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_dir']
-    IMAGE_DIR = cfg['image_dir']
 
     ORIGINAL_COCO_FILES_DICT = cfg['original_COCO_files']
     VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files']
@@ -155,184 +154,233 @@ def main(cfg_file_path):
 
     logger.info(f"Read COCO files...")
     # Read full COCO dataset
-    original_imgs_and_anns_df = pd.DataFrame()
+    original_imgs_and_anns_dict = {}
+    id_correspondence_df = pd.DataFrame()
+    max_id = 0
     for dataset, coco_file in ORIGINAL_COCO_FILES_DICT.items():
         images_df = read_coco_dataset(coco_file)
-        images_df["original_dataset"] = dataset
-        original_imgs_and_anns_df = pd.concat((original_imgs_and_anns_df, images_df), ignore_index=True)
+        images_df['original_id'] = images_df['image_id']
+        images_df['image_id'] = images_df['image_id'] + max_id
+        original_imgs_and_anns_dict[dataset] = images_df
+        max_id += len(images_df)
+
+        images_df['dataset'] = dataset
+        id_correspondence_df = pd.concat([id_correspondence_df, images_df[['dataset', 'image_id', 'original_id']]], ignore_index=True)
+
+    filepath = os.path.join(OUTPUT_DIR, "original_ids.csv")
+    id_correspondence_df.to_csv(filepath, index=False)
+    written_files.append(filepath)
 
     # Read validated COCO dataset
-    valid_imgs_and_anns_df = pd.DataFrame()
-    for _, coco_file in VALIDATED_COCO_FILES_DICT.items():
+    valid_imgs_and_anns_dict = {}
+    for dataset, coco_file in VALIDATED_COCO_FILES_DICT.items():
         images_df = read_coco_dataset(coco_file)
-        valid_imgs_and_anns_df = pd.concat((valid_imgs_and_anns_df, images_df), ignore_index=True)
+        images_df['original_id'] = images_df['image_id']
+        images_df['image_id'] = images_df.drop(columns='image_id').merge(
+            original_imgs_and_anns_dict[dataset],
+            how='left', on='original_id'
+        ).image_id
+        assert images_df['image_id'].isna().sum() == 0, "Validated COCO dataset contains images that are not in the original COCO dataset."
+        valid_imgs_and_anns_dict[dataset] = images_df
 
     if DEBUG:
         logger.info("Debug mode activated. Only first 100 images are processed.")
-        original_imgs_and_anns_df = original_imgs_and_anns_df.head(100)
-        valid_imgs_and_anns_df = valid_imgs_and_anns_df.head(150)
+        for key in original_imgs_and_anns_dict.keys():
+            original_imgs_and_anns_dict[key] = original_imgs_and_anns_dict[key].head(100)
+            valid_imgs_and_anns_dict[key] = valid_imgs_and_anns_dict[key].head(150)
 
-    logger.info(f"Found {len(valid_imgs_and_anns_df)} images for validated annotations.")
+    logger.info(f"Found {sum([len(df) for df in valid_imgs_and_anns_dict.values()])} images for validated annotations.")
 
     logger.info("Splitting images into train, val and test sets based on ratio 70% / 15% / 15%...")
-    trn_tiles = valid_imgs_and_anns_df.sample(frac=0.7, random_state=SEED)
-    val_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
-    tst_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
+    for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
+        trn_tiles = valid_imgs_and_anns_df.sample(frac=0.7, random_state=SEED)
+        val_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
+        tst_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
 
-    # Map dataset on the images
-    valid_imgs_and_anns_df["dataset"] = None
-    for dataset, df in {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}.items():
-        valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
-        original_imgs_and_anns_df.loc[original_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
-    assert all(valid_imgs_and_anns_df["dataset"].notna()), "Not all images were assigned to a dataset"
-    original_imgs_and_anns_df.loc[original_imgs_and_anns_df.dataset.isna(), "dataset"] = "oth"
+        # Map dataset on the images
+        original_imgs_and_anns_df = original_imgs_and_anns_dict[key]
+        valid_imgs_and_anns_df["dataset"] = None
+        for dataset, df in {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}.items():
+            valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+            original_imgs_and_anns_df.loc[original_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+        assert all(valid_imgs_and_anns_df["dataset"].notna()), "Not all images were assigned to a dataset"
+        original_imgs_and_anns_df.loc[original_imgs_and_anns_df.dataset.isna(), "dataset"] = "oth"
 
-    logger.info(f"Found {len(trn_tiles)} images in train set, {len(val_tiles)} images in val set and {len(tst_tiles)} images in test set.")
-    del trn_tiles, val_tiles, tst_tiles
+        logger.info(f"Found {len(trn_tiles)} images in train set, {len(val_tiles)} images in val set and {len(tst_tiles)} images in test set for the {key} dataset.")
+        if any(original_imgs_and_anns_df.dataset=='oth'):
+            logger.info(f"Found {len(original_imgs_and_anns_df[original_imgs_and_anns_df.dataset=='oth'])} images without validated annotations.")
+    del images_df, trn_tiles, val_tiles, tst_tiles
 
     # Iterate through annotations and clip them into tiles
-    image_id = 0
     annotation_id = 0
-    gt_tiles_df = pd.DataFrame()
-    oth_tiles_df = pd.DataFrame()
-    clipped_annotations_df = pd.DataFrame()
-    rejected_annotations_df = pd.DataFrame(columns=['id', 'file_name', 'bbox'])
+    excluded_annotations = 0
+    image_id = 0
     tot_tiles_with_ann = 0
     tot_tiles_without_ann = 0
-    for image in tqdm(original_imgs_and_anns_df.itertuples(), desc="Defining tiles and clipping annotations to tiles", total=len(original_imgs_and_anns_df)):
+    extreme_coordinates_dict = {'min_x': 0, 'max_x': 0, 'min_y': 0, 'max_y': 0}
+    gt_tiles_df = pd.DataFrame()
+    clipped_annotations_df = pd.DataFrame()
+    oth_tiles_df = pd.DataFrame()
+    rejected_annotations_df = pd.DataFrame(columns=['id', 'file_name', 'bbox', 'image_name'])
+    for dataset, original_imgs_and_anns_df in original_imgs_and_anns_dict.items():
+        valid_imgs_and_anns_df = valid_imgs_and_anns_dict[dataset]
+        for image in tqdm(original_imgs_and_anns_df.itertuples(), desc=f"Defining tiles and clipping annotations for the {dataset} dataset", total=len(original_imgs_and_anns_df)):
 
-        original_image = os.path.join(IMAGE_DIR[image.original_dataset], image.file_name)
-        if not os.path.exists(original_image):
-            logger.error(f"Image {image.file_name} not found")
-            continue
+            original_image = os.path.join(IMAGE_DIR[dataset], image.file_name)
+            if not os.path.exists(original_image):
+                logger.error(f"Image {image.file_name} not found")
+                continue
+            
+            tiles = []
+            params = CLIPPING_PARAMS[dataset]
+            for i in range(params["padding_y"], params["height"] - params["padding_y"] - params["overlap_y"], TILE_SIZE - params["overlap_y"]):
+                for j in range(0, params["width"] - params["overlap_x"], TILE_SIZE - params["overlap_x"]):
+                    new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
+                    tiles.append({
+                        "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset,
+                        "original_image": original_image, "original_id": image.original_id
+                    })
+                    image_id += 1
 
-        tiles = []
-        params = CLIPPING_PARAMS[image.original_dataset]
-        for i in range(params["padding_y"], params["height"] - params["padding_y"], TILE_SIZE - params["overlap_y"]):
-            for j in range(0, params["width"] - params["overlap_x"], TILE_SIZE - params["overlap_x"]):
-                new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
-                tiles.append({
-                    "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset, "original_image": original_image
-                })
-                image_id += 1
+            all_tiles_df = pd.DataFrame(tiles)
 
-        all_tiles_df = pd.DataFrame(tiles)
+            # Clip annotations to tiles
+            annotations = []
+            border_annotations = 0
+            for ann in image.annotations:
+                # Check if annotation is valid
+                rejected_annotation = True
+                validated_annotations = valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df.image_id==image.image_id, 'annotations'].iloc[0]
+                validated_ann = [a for a in validated_annotations if a["id"] == ann["id"]]
+                if len(validated_ann) == 1:
+                    ann = validated_ann[0]
+                    rejected_annotation = False
+                elif len(validated_ann) > 1:
+                    logger.critical(f"Annotation {ann['id']} is not unique in validated annotations.")
+                    sys.exit(1)
 
-        # Clip annotations to tiles
-        annotations = []
-        for ann in image.annotations:
-            # Check if annotation is valid
-            rejected_annotation = True
-            validated_annotations = valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df.image_id==image.image_id, 'annotations'].iloc[0]
-            validated_ann = [a for a in validated_annotations if a["id"] == ann["id"]]
-            if len(validated_ann) == 1:
-                ann = validated_ann[0]
-                rejected_annotation = False
-            elif len(validated_ann) > 1:
-                logger.critical(f"Annotation {ann['id']} is not unique in validated annotations.")
-                sys.exit(1)
-
-            for tile in tiles:
-                # Get tile coordinates
-                tile_min_x = int(tile["file_name"].split("_")[-2])
-                tile_max_x = tile_min_x + TILE_SIZE
-                tile_min_y = int(tile["file_name"].split("_")[-1].rstrip(".jpg"))
-                tile_max_y = tile_min_y + TILE_SIZE
-
-                # Check if annotation is outside tile
+                # Check if annotation is outside the image
                 ann_origin_x, ann_origin_y, ann_width, ann_height = ann["bbox"]
-                if ann_origin_x >= tile_max_x or ann_origin_x + ann_width <= tile_min_x or ann_origin_y >= tile_max_y or ann_origin_y + ann_height <= tile_min_y:
+                if ann_origin_x + ann_width <= 0 or ann_origin_x >= params["width"] or ann_origin_y + ann_height <= 0 or ann_origin_y >= params["height"]:
+                    excluded_annotations += 1
+                    bbox_coordinates_dict = {'min_x': ann_origin_x, 'max_x': ann_origin_x + ann_width, 'min_y': ann_origin_y, 'max_y': ann_origin_y + ann_height}
+                    for key, fct in {'min_x': min, 'max_x': max, 'min_y': min, 'max_y': max}.items():
+                        extreme_coordinates_dict[key] = fct(extreme_coordinates_dict[key], bbox_coordinates_dict[key])
+                    logger.warning(f"Annotation {ann['id']} is outside the image {image.file_name}. Bbox: {[round(value) for value in ann['bbox']]}.")
+                    continue
+                if ann_origin_y > params["height"] - params["padding_y"]:
+                    border_annotations += 1
                     continue
 
-                # else, scale coordinates and clip if necessary
-                # bbox
-                x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
-                y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
+                for tile in tiles:
+                    # Get tile coordinates
+                    tile_min_x = int(tile["file_name"].split("_")[-2])
+                    tile_max_x = tile_min_x + TILE_SIZE
+                    tile_min_y = int(tile["file_name"].split("_")[-1].rstrip(".jpg"))
+                    tile_max_y = tile_min_y + TILE_SIZE
 
-                if rejected_annotation:
-                    rejected_annotations_df = pd.concat((rejected_annotations_df, pd.DataFrame.from_records([{
-                        "id": ann["id"], "file_name": tile["file_name"], "bbox": [x1, y1, new_width, new_height]
-                    }])), ignore_index=True)
-                else:
-                    # segmentation
-                    old_coords = ann["segmentation"][0]
-                    coords = [get_new_coordinate(old_coords[0], tile_min_x), get_new_coordinate(old_coords[1], tile_min_y)] # set first coordinates
-                    new_coords_tuples = []
-                    for i in range(2, len(old_coords), 2):
-                        new_x = get_new_coordinate(old_coords[i], tile_min_x)
-                        new_y = get_new_coordinate(old_coords[i+1], tile_min_y)
-                        if new_x in [0, TILE_SIZE] and coords[-2] == new_x or new_y in [0, TILE_SIZE] and coords[-1] == new_y or (new_x, new_y) in new_coords_tuples:
-                            continue 
-                        new_coords_tuples.append((new_x, new_y))
-                        coords.extend([new_x, new_y])
-                    assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
-                    if all(value[0] <= TILE_SIZE * 0.02 or value[0] >= TILE_SIZE * 0.98 for value in new_coords_tuples) or all(value[1] <=10 or value[1] >= 500 for value in new_coords_tuples):
+                    # Check if annotation is outside the tile
+                    if ann_origin_x >= tile_max_x or ann_origin_x + ann_width <= tile_min_x or ann_origin_y >= tile_max_y or ann_origin_y + ann_height <= tile_min_y:
                         continue
 
-                    annotations.append(dict(
-                        id=annotation_id,
-                        image_id=tile["id"],
-                        category_id=1,  # Currently, single class
-                        iscrowd=ann["iscrowd"],
-                        bbox=[x1, y1, new_width, new_height],
-                        area=segmentation_to_polygon([coords]).area,
-                        segmentation=[coords]
-                    ))
-                    annotation_id += 1
+                    # else, scale coordinates and clip if necessary
+                    # bbox
+                    x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
+                    y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
 
-        tile_annotations_df = pd.DataFrame(
-            annotations,
-            columns=['image_id'] if len(annotations) == 0 else annotations[0].keys()
-        )
-        condition_annotations = all_tiles_df["id"].isin(tile_annotations_df["image_id"].unique())
+                    if rejected_annotation:
+                        rejected_annotations_df = pd.concat((rejected_annotations_df, pd.DataFrame.from_records([{
+                            "id": ann["id"], "file_name": tile["file_name"], "bbox": [x1, y1, new_width, new_height], 'image_name': image.file_name,
+                        }])), ignore_index=True)
+                    else:
+                        # segmentation
+                        old_coords = ann["segmentation"][0]
+                        coords = [get_new_coordinate(old_coords[0], tile_min_x), get_new_coordinate(old_coords[1], tile_min_y)] # set first coordinates
+                        new_coords_tuples = []
+                        for i in range(2, len(old_coords), 2):
+                            new_x = get_new_coordinate(old_coords[i], tile_min_x)
+                            new_y = get_new_coordinate(old_coords[i+1], tile_min_y)
+                            if new_x in [0, TILE_SIZE] and coords[-2] == new_x or new_y in [0, TILE_SIZE] and coords[-1] == new_y or (new_x, new_y) in new_coords_tuples:
+                                continue 
+                            new_coords_tuples.append((new_x, new_y))
+                            coords.extend([new_x, new_y])
+                        assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
+                        if all(value[0] <= TILE_SIZE * 0.02 or value[0] >= TILE_SIZE * 0.98 for value in new_coords_tuples) or all(value[1] <=10 or value[1] >= 500 for value in new_coords_tuples):
+                            border_annotations += 1
+                            continue
 
-        if RATIO_WO_ANNOTATIONS != 0 and len(annotations) == 0:
-                min_nbr = 1
-                gt_tiles_df = pd.concat((gt_tiles_df, all_tiles_df.sample(n=min_nbr, random_state=SEED)), ignore_index=True)
-                tot_tiles_without_ann += min_nbr
-                selected_tiles = all_tiles_df.sample(n=min_nbr, random_state=SEED).file_name.unique().tolist()
+                        annotations.append(dict(
+                            id=annotation_id,
+                            object_id = ann["object_id"],
+                            image_id=tile["id"],
+                            category_id=1,  # Currently, single class
+                            iscrowd=ann["iscrowd"],
+                            bbox=[x1, y1, new_width, new_height],
+                            area=segmentation_to_polygon([coords]).area,
+                            segmentation=[coords]
+                        ))
+                        annotation_id += 1
 
-        else: 
-            clipped_annotations_df = pd.concat([clipped_annotations_df, tile_annotations_df], ignore_index=True)
+            tile_annotations_df = pd.DataFrame(
+                annotations,
+                columns=['image_id'] if len(annotations) == 0 else annotations[0].keys()
+            )
+            assert tile_annotations_df.shape[0] + rejected_annotations_df[rejected_annotations_df.image_name == image.file_name].shape[0] + border_annotations + excluded_annotations\
+                >= len(image.annotations), "Missing annotations"
+            condition_annotations = all_tiles_df["id"].isin(tile_annotations_df["image_id"].unique())
 
-            # Separate tiles w/ and w/o annotations
-            tiles_with_ann_df = all_tiles_df[condition_annotations]
-            tot_tiles_with_ann += tiles_with_ann_df.shape[0]
+            if RATIO_WO_ANNOTATIONS != 0 and len(annotations) == 0:
+                    min_nbr = 1
+                    gt_tiles_df = pd.concat((gt_tiles_df, all_tiles_df.sample(n=min_nbr, random_state=SEED)), ignore_index=True)
+                    tot_tiles_without_ann += min_nbr
+                    selected_tiles = all_tiles_df.sample(n=min_nbr, random_state=SEED).file_name.unique().tolist()
 
-            if RATIO_WO_ANNOTATIONS != 0:
-                nbr_tiles_without_ann = ceil(len(tiles_with_ann_df) * RATIO_WO_ANNOTATIONS/(1 - RATIO_WO_ANNOTATIONS))
-            
-                tiles_without_ann_df = all_tiles_df[~condition_annotations]
-                low_tiles_df = select_low_tiles(tiles_without_ann_df, 1/3)
-                if len(low_tiles_df) >= nbr_tiles_without_ann:
-                    added_empty_tiles_df = low_tiles_df.sample(n=nbr_tiles_without_ann, random_state=SEED)
+            else: 
+                clipped_annotations_df = pd.concat([clipped_annotations_df, tile_annotations_df], ignore_index=True)
+
+                # Separate tiles w/ and w/o annotations
+                tiles_with_ann_df = all_tiles_df[condition_annotations]
+                tot_tiles_with_ann += tiles_with_ann_df.shape[0]
+
+                if RATIO_WO_ANNOTATIONS != 0:
+                    nbr_tiles_without_ann = ceil(len(tiles_with_ann_df) * RATIO_WO_ANNOTATIONS/(1 - RATIO_WO_ANNOTATIONS))
+                
+                    tiles_without_ann_df = all_tiles_df[~condition_annotations]
+                    low_tiles_df = select_low_tiles(tiles_without_ann_df, 1/2)
+                    if len(low_tiles_df) >= nbr_tiles_without_ann:
+                        added_empty_tiles_df = low_tiles_df.sample(n=nbr_tiles_without_ann, random_state=SEED)
+                    else:
+                        added_empty_tiles_df = pd.concat([
+                            low_tiles_df, 
+                            tiles_without_ann_df[~tiles_without_ann_df["file_name"].isin(low_tiles_df["file_name"].unique())].sample(
+                                n=nbr_tiles_without_ann-len(low_tiles_df), random_state=SEED
+                            )
+                        ], ignore_index=True)
+
+                    tot_tiles_without_ann += added_empty_tiles_df.shape[0]
+
+                    gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df, added_empty_tiles_df), ignore_index=True)
+                    selected_tiles = tiles_without_ann_df.file_name.unique().tolist() + added_empty_tiles_df.file_name.unique().tolist()
+
                 else:
-                    added_empty_tiles_df = pd.concat([
-                        low_tiles_df, 
-                        tiles_without_ann_df[~tiles_without_ann_df["file_name"].isin(low_tiles_df["file_name"].unique())].sample(
-                            n=nbr_tiles_without_ann-len(low_tiles_df), random_state=SEED
-                        )
-                    ], ignore_index=True)
+                    gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df), ignore_index=True)
+                    selected_tiles = tiles_with_ann_df.file_name.unique().tolist()
 
-                tot_tiles_without_ann += added_empty_tiles_df.shape[0]
+            if MAKE_OTH_DATASET:
+                tiles_without_ann_df = all_tiles_df[~(condition_annotations | all_tiles_df["file_name"].isin(selected_tiles))].copy()
+                tiles_with_ann_df = select_low_tiles(tiles_without_ann_df, 2/3)
+                oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df], ignore_index=True)
 
-                gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df, added_empty_tiles_df), ignore_index=True)
-                selected_tiles = tiles_without_ann_df.file_name.unique().tolist() + added_empty_tiles_df.file_name.unique().tolist()
+                del tiles_without_ann_df
 
-            else:
-                gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df), ignore_index=True)
-                selected_tiles = tiles_with_ann_df.file_name.unique().tolist()
-
-        if MAKE_OTH_DATASET:
-            tiles_without_ann_df = all_tiles_df[~(condition_annotations | all_tiles_df["file_name"].isin(selected_tiles))].copy()
-            tiles_with_ann_df = select_low_tiles(tiles_without_ann_df, 2/3)
-            oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df], ignore_index=True)
-
-            del tiles_without_ann_df
-
-        del all_tiles_df, condition_annotations, tile_annotations_df, selected_tiles
+            del all_tiles_df, condition_annotations, tile_annotations_df, selected_tiles
                 
     logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and kept {tot_tiles_without_ann} tiles without annotations in the training datasets.")
+    if excluded_annotations > 0:
+        logger.warning(f"{excluded_annotations} annotations were excluded because they were outside of their designated image.")
+        logger.warning(f"Most extrem coordinates were:")
+        for key, value in extreme_coordinates_dict.items():
+            logger.warning(f"- {key.replace('_', ' ')}: {value}")
     # Convert images to tiles
     images_to_tiles_dict = gt_tiles_df.groupby('original_image')['file_name'].apply(list).to_dict()
     gt_tiles_df.drop(columns='original_image', inplace=True)

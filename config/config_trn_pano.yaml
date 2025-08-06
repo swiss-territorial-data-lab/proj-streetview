@@ -1,31 +1,33 @@
 transform_detections.py:
   working_directory: .
-  output_folder: outputs/detectron2
-  image_dir: data/RCNE/panoramic_images
+  output_folder: outputs/detectron2_both
   detections_files:
-    trn: outputs/detectron2/trn_detections_at_0dot05_threshold.json
-    val: outputs/detectron2/val_detections_at_0dot05_threshold.json
-    tst: outputs/detectron2/tst_detections_at_0dot05_threshold.json
-    oth: outputs/detectron2/oth_detections_at_0dot05_threshold.json
+    trn: outputs/detectron2_both/trn_detections_at_0dot05_threshold.json
+    val: outputs/detectron2_both/val_detections_at_0dot05_threshold.json
+    tst: outputs/detectron2_both/tst_detections_at_0dot05_threshold.json
+    oth: outputs/detectron2_both/oth_detections_at_0dot05_threshold.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
-  score_threshold: 0.05
+    SZH: data/SZH/valid_zh_250731.json
+  id_correspondence: outputs/detectron2_both/original_ids.csv
+  score_threshold: 0.20
 
 
 clipped_labels_to_panoramic.py:
   working_directory: .
-  output_folder: outputs/detectron2
-  image_dir: data/RCNE/panoramic_images
+  output_folder: outputs/detectron2_both
   labels_files:
-    trn: outputs/detectron2/COCO_trn.json
-    val: outputs/detectron2/COCO_val.json
-    tst: outputs/detectron2/COCO_tst.json
+    trn: outputs/detectron2_both/COCO_trn.json
+    val: outputs/detectron2_both/COCO_val.json
+    tst: outputs/detectron2_both/COCO_tst.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
+    SZH: data/SZH/valid_zh_250731.json
+  id_correspondence: outputs/detectron2_both/original_ids.csv
 
 
 assess_detections.py:
-  working_directory: outputs/detectron2
+  working_directory: outputs/detectron2_both
   output_folder: panoptic_eval
   metrics_method: micro-average
   datasets:
@@ -40,16 +42,18 @@ assess_detections.py:
 
 
 visualize_results.py:
-  working_directory: .
-  output_folder: outputs/detectron2/panoptic_eval/images_for_visualization
-  image_folder: data/RCNE/panoramic_images
+  working_directory: outputs/detectron2_both
+  output_folder: panoptic_eval/images_for_visualization
   tagged_COCO_files:
-    all:  outputs/detectron2/panoptic_eval/tagged_detections.json
-    oth: outputs/detectron2/oth_COCO_panoptic_detections.json
+    all:  panoptic_eval/tagged_detections.json
+    oth: oth_COCO_panoptic_detections.json
     # trn: trn_COCO_panoptic_detections.json
     # val: val_COCO_panoptic_detections.json
     # tst: tst_COCO_panoptic_detections.json
-  coco_file_for_images: data/RCNE/Object_Detect_GT/ne_COCO.json
+  coco_file_for_images:
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
+      tst: tst_COCO_panoptic_detections.json
   # image_ids: [
   #   4120,
   #   4121,
