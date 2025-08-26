@@ -149,8 +149,8 @@ def read_image_info(coco_file_path_dict, id_correspondence_df):
         tmp_df = pd.DataFrame(coco_data)
         tmp_df = tmp_df.merge(
             id_correspondence_df[id_correspondence_df.dataset==dataset_key], 
-            how='left', left_on='image_id', right_on='original_id'
-        ).drop(columns=['original_id','image_id_x']).rename(columns={'image_id_y': 'image_id'})
+            how='left', left_on='id', right_on='original_id'
+        ).drop(columns=['original_id','id'])
         images_df = pd.concat((images_df, tmp_df), ignore_index=True)
 
     images_df['basename'] = images_df.file_name.apply(lambda x: os.path.basename(x))

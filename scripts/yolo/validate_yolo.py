@@ -32,7 +32,6 @@ WORKING_DIR = cfg['working_directory']
 MODEL = cfg['model']
 PROJECT = cfg['project']
 PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
-BEST_PARAMETERS_PATH = cfg['best_parameters_path']
 
 os.chdir(WORKING_DIR)
 os.makedirs(os.path.join(PROJECT, PROJECT_NAME, 'val'), exist_ok=True)
@@ -40,16 +39,13 @@ os.makedirs(os.path.join(PROJECT, PROJECT_NAME, 'tst'), exist_ok=True)
 filepath=os.path.join(PROJECT, PROJECT_NAME, 'metrics.csv')
 
 model = YOLO(MODEL)
-with open(BEST_PARAMETERS_PATH) as fp:
-    best_parameters = json.load(fp)
-    batch_size = best_parameters['batch']
 
 logger.info(f"Perform validation...")
-metrics = model.val(batch=batch_size, plots=True, project=PROJECT, name=PROJECT_NAME + '/val', exist_ok=True, **YOLO_TRAINING_PARAMS)
+metrics = model.val(plots=True, project=PROJECT, name=PROJECT_NAME + '/val', exist_ok=True, **YOLO_TRAINING_PARAMS)
 metrics_df = metrics.to_df()
 
 logger.info(f"Perform test...")
-metrics = model.val(batch=batch_size, split='test', plots=True, project=PROJECT, name=PROJECT_NAME + '/tst', exist_ok=True, **YOLO_TRAINING_PARAMS)
+metrics = model.val(split='test', plots=True, project=PROJECT, name=PROJECT_NAME + '/tst', exist_ok=True, **YOLO_TRAINING_PARAMS)
 metrics_df = concat([metrics_df, metrics.to_df()], ignore_index=True)
 
 logger.info(f"Save metrics to {filepath}...")

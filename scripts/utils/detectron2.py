@@ -104,7 +104,7 @@ class CocoTrainer(DefaultTrainer):
            T.RandomBrightness(0.5, 1.5),
            T.RandomContrast(0.5, 1.5),
            T.RandomSaturation(0.5, 1.5),
-           T.RandomSaturation(0.5, 1.5),
+           T.RandomLighting(0.5)
         ])
         return build_detection_train_loader(cfg, mapper=mapper)
 

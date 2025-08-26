@@ -37,7 +37,9 @@ def train_yolo(config):
     _ = model.train(
         epochs=config["epochs"],                     # Nombre d’époques
         lr0=config["lr0"],             # Taux d’apprentissage initial
+        lrf=config["lrf"],             # Taux d’apprentissage final
         optimizer=config["optimizer"], # Optimiseur (SGD, Adam, etc.)
+        freeze=config["freeze"],       # Nombre de couches à geler
         device=device,
         workers=0,                      # Pas de workers multi-thread pour éviter bugs Ray
         **YOLO_TRAINING_PARAMS
@@ -72,10 +74,12 @@ print(ray.cluster_resources())
 
 # 離 Espace de recherche (grille simple ici, peut être étendu)
 search_space = {
-    "model": tune.grid_search(["yolo11s-seg"]),
-    "lr0": tune.grid_search([0.005, 0.01, 0.05]),
+    "model": tune.grid_search(["yolo11s-seg", "yolo11m-seg"]),
+    "lr0": tune.grid_search([0.003, 0.005, 0.01]),
+    "lrf": tune.grid_search([0.005, 0.01]),
     "optimizer": tune.grid_search(["SGD", "Adam"]),
-    "epochs": tune.grid_search([50, 100]),
+    "epochs": tune.grid_search([50, 75]),
+    "freeze": tune.grid_search([0, 6])
 }
 
 # ⚙️ Lance les expériences Ray Tune

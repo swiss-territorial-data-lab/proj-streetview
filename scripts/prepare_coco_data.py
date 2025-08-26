@@ -11,6 +11,7 @@ from yaml import load, FullLoader
 
 import numpy as np
 import pandas as pd
+from itertools import product
 from math import ceil
 
 from utils.constants import CATEGORIES, IMAGE_DIR, TILE_SIZE
@@ -59,7 +60,7 @@ def get_new_coordinate(initial_coor, tile_min):
     return max(min(initial_coor-tile_min, TILE_SIZE), 0)
 
 
-def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tasks_dict, output_dir='outputs', overwrite=False):
+def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tasks_dict, overwrite=False):
     """
     Processes an image by dividing it into tiles, applying masks on pixels corresponding to rejected annotations, and saving the tiles.
 
@@ -79,7 +80,7 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tas
     prepare_yolo = tasks_dict['yolo']['prepare_data'] if 'yolo' in tasks_dict.keys() else False
     output_dirs = [tasks_dict[task]['subfolder'] for task in tasks_dict.keys() if tasks_dict[task]['prepare_data']]
     achieved = {image_path: []}
-    if all(os.path.exists(os.path.join(output_dir, tile_path)) and not overwrite for tile_path in corresponding_tiles):
+    if all(os.path.exists(os.path.join(output_dir, tile_path)) and not overwrite for output_dir, tile_path in product(output_dirs,corresponding_tiles)):
         return True 
 
     img = cv2.imread(os.path.join(image_path))
@@ -162,7 +163,6 @@ def main(cfg_file_path):
         cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
     WORKING_DIR = cfg['working_directory']
-    OUTPUT_DIR = cfg['output_dir']
 
     ORIGINAL_COCO_FILES_DICT = cfg['original_COCO_files']
     VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files']
@@ -219,7 +219,7 @@ def main(cfg_file_path):
         images_df['dataset'] = dataset
         id_correspondence_df = pd.concat([id_correspondence_df, images_df[['dataset', 'image_id', 'original_id']]], ignore_index=True)
 
-    filepath = os.path.join(OUTPUT_DIR, "original_ids.csv")
+    filepath = "outputs/original_ids.csv"
     id_correspondence_df.to_csv(filepath, index=False)
     written_files.append(filepath)
 
@@ -432,7 +432,7 @@ def main(cfg_file_path):
 
             del all_tiles_df, condition_annotations, tile_annotations_df, selected_tiles
                 
-    logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and kept {tot_tiles_without_ann} tiles without annotations in the training datasets.")
+    logger.info(f"Found {tot_tiles_with_ann} images with annotations and {tot_tiles_without_ann} images without annotations.")
     if excluded_annotations > 0:
         logger.warning(f"{excluded_annotations} annotations were excluded because they were outside of their designated image.")
         logger.warning(f"Most extrem coordinates were:")
@@ -443,7 +443,7 @@ def main(cfg_file_path):
     gt_tiles_df.drop(columns='original_image', inplace=True)
 
     _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
-            image, corresponding_tiles, rejected_annotations_df, tasks_dict=TASKS, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
+            image, corresponding_tiles, rejected_annotations_df, tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES
         ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
     )
     # for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
@@ -456,7 +456,7 @@ def main(cfg_file_path):
         oth_tiles_df.drop(columns='original_image', inplace=True)
 
         _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
-                image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), tasks_dict=TASKS, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
+                image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES
             ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
         )
 
