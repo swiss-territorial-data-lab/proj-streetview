@@ -5,12 +5,16 @@ from time import time
 from yaml import FullLoader, load
 
 import geopandas as gpd
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import rasterio as rio
+import seaborn as sns
+from shapely.geometry import MultiPolygon, Polygon
 
 import utils.metrics as metrics
 from utils.constants import CATEGORIES
-from utils.misc import format_logger
+from utils.misc import format_logger, grid_over_tile
 
 logger = format_logger(logger)
 
@@ -72,7 +76,10 @@ logger.info("Reading data...")
 
 aoi_gdf = gpd.GeoDataFrame()
 for dataset_key, filepath in AOI_FILES.items():
-    aoi_gdf = pd.concat([aoi_gdf, gpd.read_file(filepath)], ignore_index=True)
+    tmp_gdf = gpd.read_file(filepath)
+    if tmp_gdf.geom_type.iloc[0] == 'Point':
+        tmp_gdf.loc[:, 'geometry'] = tmp_gdf.buffer(20)
+    aoi_gdf = pd.concat([aoi_gdf, tmp_gdf], ignore_index=True)
 aoi_poly = aoi_gdf.union_all()
 
 detections_dict, geom_type_dets = read_files(DETECTION_FILES, aoi_poly)
@@ -106,8 +113,8 @@ logger.info("The cadaster data are acting as ground truth.")
 global_metrics_dict = {'dataset': [], 'TP': [], 'FP': [], 'FN': [], 'precision': [], 'recall': [], 'f1': []}    
 tagged_res_gdf_dict = {}
 for dataset_key in detections_dict.keys():
-    detections_gdf = detections_dict[dataset_key]
-    cadaster_manholes_gdf = manholes_dict[dataset_key]
+    detections_gdf = detections_dict[dataset_key].copy()
+    cadaster_manholes_gdf = manholes_dict[dataset_key].copy()
 
     if 'det_id' not in detections_gdf.columns:
         detections_gdf['det_id'] = detections_gdf.index
@@ -133,6 +140,7 @@ for dataset_key in detections_dict.keys():
 
     tagged_res_gdf_dict[dataset_key] = pd.concat(tagged_gdf_dict.values())
 
+logger.info('Save results...')
 # Format tagged results
 if SAVE_SEPARATE_DATASETS:
     for dataset_key in detections_dict.keys():
@@ -149,6 +157,91 @@ global_metrics_df = pd.DataFrame(global_metrics_dict)
 
 filepath = os.path.join(OUTPUT_DIR, 'global_metrics.csv')
 global_metrics_df.to_csv(filepath, index=False)
+written_files.append(filepath)
+
+logger.info("Calculate density of problematic points on a grid...")
+TILE_SIZE = 100
+full_grid_gdf = gpd.GeoDataFrame()
+if aoi_poly.geom_type == 'Polygon':
+    aoi_parts = [aoi_poly]
+else:
+    aoi_parts = aoi_poly.geoms
+for zone in aoi_parts:
+    tile_origin = zone.bounds[0], zone.bounds[1]
+    tile_size = (
+        (zone.bounds[2] - zone.bounds[0])/TILE_SIZE, 
+        (zone.bounds[3] - zone.bounds[1])/TILE_SIZE
+    )
+    grid_gdf = grid_over_tile(tile_size, tile_origin, pixel_size_x=TILE_SIZE, grid_width=1, grid_height=1, test_shape=zone)
+    full_grid_gdf = pd.concat([full_grid_gdf, grid_gdf])
+
+tmp_df = gpd.GeoDataFrame(pd.concat(tagged_res_gdf_dict.values()))
+problematic_points_gdf = gpd.GeoDataFrame(
+    tmp_df[tmp_df['tag'].isin(['FN', 'FP'])],
+    geometry=tmp_df.loc[tmp_df['tag'].isin(['FN', 'FP'])].centroid,
+    columns=['det_id', 'label_id', 'tag', 'geometry'],
+    crs='EPSG:2056'
+)
+
+points_on_grid_gdf = gpd.sjoin(full_grid_gdf, problematic_points_gdf, how='inner')
+point_count_df = points_on_grid_gdf.groupby(['id', 'tag']).size().reset_index(name='count')
+point_count_gdf = full_grid_gdf.merge(point_count_df, how='right', on=['id'])
+
+logger.info('Save result...')
+filepath = os.path.join(OUTPUT_DIR, 'heatmap_grid.gpkg')
+point_count_gdf.to_file(filepath)
+written_files.append(filepath)
+
+logger.info('Produce a KDE plot of problematic points...')
+# cf. https://towardsdatascience.com/from-kernel-density-estimation-to-spatial-analysis-in-python-64ddcdb6bc9b/
+levels = [0.2, 0.3, 0.4, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.8, 0.9,1]
+f, ax = plt.subplots(ncols=1, figsize=(20, 8))
+# Kernel Density Estimation
+kde = sns.kdeplot(
+    ax=ax,
+    x=problematic_points_gdf['geometry'].x,
+    y= problematic_points_gdf['geometry'].y,
+    levels = levels,
+    shade=True,
+    cmap='Reds',
+    alpha=0.9
+)
+
+# Transform to a vector
+level_polygons = []
+i=0
+for col in kde.collections:
+    # Loop through all polygons that have the same intensity level
+    for contour in col.get_paths(): 
+        paths = []
+        # Create a polygon for the countour
+        # First polygon is the main countour, the rest are holes
+        for ncp,cp in enumerate(contour.to_polygons()):
+            x = cp[:,0]
+            y = cp[:,1]
+            new_shape = Polygon([(i[0], i[1]) for i in zip(x,y)])
+            if ncp == 0:
+                poly = new_shape
+            else:
+                # Remove holes, if any
+                poly = poly.difference(new_shape)
+
+            # Append polygon to list
+            paths.append(new_shape)
+        paths.append(poly)
+        # Create a MultiPolygon for the contour
+        multi = MultiPolygon(paths)
+        # Append MultiPolygon and level as tuple to list
+        level_polygons.append((levels[i], multi))
+        i+=1
+
+intensity_gdf = gpd.GeoDataFrame(
+    pd.DataFrame(level_polygons, columns =['level', 'geometry']), 
+    geometry='geometry', crs = gdf.crs
+)
+# Save to file
+filepath = os.path.join(OUTPUT_DIR, 'kde_polygons.gpkg')
+intensity_gdf.to_file(filepath, driver='GPKG')
 written_files.append(filepath)
 
 print()
