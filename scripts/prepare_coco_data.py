@@ -63,25 +63,31 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, out
         overwrite (bool, optional): Whether to overwrite existing tiles. Defaults to False.
 
     Returns:
-        bool: True if all tiles were saved successfully, False otherwise.
+        dict: A dictionary of the tiles that could not be saved with tile paths as key and False as value.
     """
 
-    achieved = True
     if all(os.path.exists(os.path.join(output_dir, tile_path)) and not overwrite for tile_path in corresponding_tiles):
-        return True 
+        return {} 
 
     img = cv2.imread(os.path.join(image_path))
     if img is None:
         logger.error(f"Image {image_path} could not be read.")
-        return False
+        return {tile_path: False for tile_path in corresponding_tiles}
 
+    achieved = {}
     for tile_path in corresponding_tiles:
         if not os.path.exists(os.path.join(output_dir, tile_path)) or overwrite:
             i = int(tile_path.split("_")[-1].rstrip(".jpg"))
             j = int(tile_path.split("_")[-2])
             tile = np.zeros((TILE_SIZE, TILE_SIZE, 3), dtype=np.uint8)
-            tile[:] = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
-            assert tile.shape[0] == TILE_SIZE and tile.shape[1] == TILE_SIZE, f"Tile shape not {TILE_SIZE} x {TILE_SIZE} px"
+            try:
+                tile[:] = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
+            except:
+                tmp = img[i:i+TILE_SIZE, j:j+TILE_SIZE]
+                assert any([tmp.shape[0] == 0, tmp.shape[1]  == 0]), \
+                    f"Tile {tile_path} was not prefectly cut into tiles of size {TILE_SIZE}. Left: {img.shape[1]-TILE_SIZE}, Top: {img.shape[0]-TILE_SIZE}"
+                achieved[tile_path] = False
+                continue
 
             # Draw a black mask on reject annotations
             annotations_to_mask_df = rejected_annotations_df[rejected_annotations_df.file_name == tile_path]
@@ -95,7 +101,9 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, out
                     thickness=-1
                 )
                 
-            achieved = cv2.imwrite(os.path.join(output_dir, tile_path), tile)
+            achievement = cv2.imwrite(os.path.join(output_dir, tile_path), tile)
+            if not achievement:
+                achieved[tile_path] = achievement
 
     return achieved
 
@@ -144,7 +152,11 @@ def main(cfg_file_path):
 
     for dataset in CLIPPING_PARAMS.keys():
         params = CLIPPING_PARAMS[dataset]
-        logger.info(f"Including an overlap of {round(params['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {dataset} dataset.")
+        try:
+            logger.info(f"Including an overlap of {round(params['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {dataset} dataset.")
+        except:
+            for key in params.keys():
+                logger.info(f"Including an overlap of {round(params[key]['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params[key]['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {dataset} dataset ({key}).")
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -233,6 +245,11 @@ def main(cfg_file_path):
             
             tiles = []
             params = CLIPPING_PARAMS[dataset]
+            if dataset == 'SZH':
+                if 'lb4' in image.file_name:
+                    params = params['lb4']
+                else:
+                    params = params['else']
             for i in range(params["padding_y"], params["height"] - params["padding_y"] - params["overlap_y"], TILE_SIZE - params["overlap_y"]):
                 for j in range(0, params["width"] - params["overlap_x"], TILE_SIZE - params["overlap_x"]):
                     new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
@@ -253,6 +270,7 @@ def main(cfg_file_path):
                 validated_annotations = valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df.image_id==image.image_id, 'annotations'].iloc[0]
                 validated_ann = [a for a in validated_annotations if a["id"] == ann["id"]]
                 if len(validated_ann) == 1:
+                    # Case: annotation is valid
                     ann = validated_ann[0]
                     rejected_annotation = False
                 elif len(validated_ann) > 1:
@@ -330,6 +348,7 @@ def main(cfg_file_path):
             condition_annotations = all_tiles_df["id"].isin(tile_annotations_df["image_id"].unique())
 
             if RATIO_WO_ANNOTATIONS != 0 and len(annotations) == 0:
+                    # TODO: artifacts of old code. Change to respect the ratio of tiles w/o annotation even with tiles from image w/o annotations
                     min_nbr = 1
                     gt_tiles_df = pd.concat((gt_tiles_df, all_tiles_df.sample(n=min_nbr, random_state=SEED)), ignore_index=True)
                     tot_tiles_without_ann += min_nbr
@@ -385,24 +404,23 @@ def main(cfg_file_path):
     images_to_tiles_dict = gt_tiles_df.groupby('original_image')['file_name'].apply(list).to_dict()
     gt_tiles_df.drop(columns='original_image', inplace=True)
 
-    _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
+    achievements = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
             image, corresponding_tiles, rejected_annotations_df, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
         ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
     )
+    # for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
+    #     image_to_tiles(image, corresponding_tiles, rejected_annotations_df, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES)
     
     if MAKE_OTH_DATASET:
         logger.info(f"Kept {oth_tiles_df.shape[0]} tiles without annotations in the other dataset.")
         images_to_tiles_dict = oth_tiles_df.groupby('original_image')['file_name'].apply(list).to_dict()
         oth_tiles_df.drop(columns='original_image', inplace=True)
 
-        _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
+        achievements = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
                 image, corresponding_tiles, pd.DataFrame(columns=rejected_annotations_df.columns), output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES
             ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
         )
-
-    # for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles"):
-    #     image_to_tiles(image, corresponding_tiles, rejected_annotations_df, output_dir=OUTPUT_DIR, overwrite=OVERWRITE_IMAGES)
-    # del images_to_tiles_dict
+    del images_to_tiles_dict, achievements
 
     duplicates = clipped_annotations_df.drop(columns='id').astype({'bbox': str, 'segmentation': str}, copy=True).duplicated()
     if any(duplicates):
