@@ -10,7 +10,7 @@ transform_detections.py:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250626.json
     SZH: data/SZH/valid_zh_250731.json
   id_correspondence: outputs/detectron2_both/original_ids.csv
-  score_threshold: 0.20
+  score_threshold: 0.05
 
 
 clipped_labels_to_panoramic.py:
