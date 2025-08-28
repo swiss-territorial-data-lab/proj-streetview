@@ -1,11 +1,11 @@
 transform_detections.py:
   working_directory: .
-  output_folder: outputs/yolo/infer/run02
+  output_folder: outputs/yolo/infer/run03
   detections_files:
-    trn: outputs/yolo/infer/run02/YOLO_trn_detections.json
-    val: outputs/yolo/infer/run02/YOLO_val_detections.json
-    tst: outputs/yolo/infer/run02/YOLO_tst_detections.json
-    oth: outputs/yolo/infer/run02/YOLO_oth_detections.json
+    trn: outputs/yolo/infer/run03/YOLO_trn_detections.json
+    val: outputs/yolo/infer/run03/YOLO_val_detections.json
+    tst: outputs/yolo/infer/run03/YOLO_tst_detections.json
+    oth: outputs/yolo/infer/run03/YOLO_oth_detections.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
     SZH: data/SZH/valid_zh_250731.json
@@ -37,7 +37,7 @@ assess_detections.py:
       trn: trn_COCO_panoptic_labels.json
       val: val_COCO_panoptic_labels.json
       tst: tst_COCO_panoptic_labels.json
-    path_detections: infer/run02
+    path_detections: infer/run03
     detections_files:
       trn: trn_COCO_panoptic_detections.json
       val: val_COCO_panoptic_detections.json
@@ -45,12 +45,13 @@ assess_detections.py:
 
 
 visualize_results.py:
-  working_directory: .
-  output_folder: outputs/yolo/panoptic_eval/images_for_visualization
+  working_directory: outputs/yolo
+  output_folder: panoptic_eval/images_for_visualization
   tagged_COCO_files:
-    tagged:  outputs/yolo/panoptic_eval/tagged_detections.json
+    tagged:  panoptic_eval/tagged_detections.json
+    oth: infer/run03/oth_COCO_panoptic_detections.json
   coco_file_for_images:
-      trn: trn_COCO_panoptic_detections.json
-      val: val_COCO_panoptic_detections.json
-      tst: tst_COCO_panoptic_detections.json
-      oth: oth_COCO_panoptic_detections.json
+      trn: infer/run03/trn_COCO_panoptic_detections.json
+      val: infer/run03/val_COCO_panoptic_detections.json
+      tst: infer/run03/tst_COCO_panoptic_detections.json
+      oth: infer/run03/oth_COCO_panoptic_detections.json

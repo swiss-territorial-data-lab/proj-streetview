@@ -1,10 +1,10 @@
 prepare_coco_data.py:
   working_directory: .
   original_COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    # RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
     SZH: data/SZH/zh_COCO_13033.json
   validated_COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
+    # RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
     SZH: data/SZH/valid_zh_250731.json
   clipping_params:
     RCNE:
@@ -26,17 +26,17 @@ prepare_coco_data.py:
     make_other_dataset: True
     yolo:
       prepare_data: True
-      subfolder: outputs/coco_for_yolo_conversion_both
+      subfolder: outputs/coco_for_yolo_conversion_szh
 
 coco_to_yolo.py:
   working_directory: outputs
-  input_folder: coco_for_yolo_conversion_both
-  output_folder: datasets/both_dataset_512
+  input_folder: coco_for_yolo_conversion_szh
+  output_folder: datasets/szh_dataset_512
 
 redistribute_images.py:
-  working_directory: outputs/coco_for_yolo_conversion_both
+  working_directory: outputs/coco_for_yolo_conversion_szh
   image_folder: .
-  output_folder: ../datasets/both_dataset_512/images
+  output_folder: ../datasets/szh_dataset_512/images
   COCO_files:
     trn: trn.json
     val: val.json
@@ -70,30 +70,30 @@ train_yolo.py:
 validate_yolo.py:
   working_directory: outputs
   project: yolo/train
-  model: yolo/train/run02/weights/best.pt
+  model: yolo/train/run03/weights/best.pt
 
 infer_with_yolo.py:
   working_directory: outputs
   project: yolo/infer
-  model: yolo/train/run02/weights/best.pt
+  model: yolo/train/run03/weights/best.pt
   dataset_images_folder:
-    trn: datasets/both_dataset_512/images/trn
-    val: datasets/both_dataset_512/images/val
-    tst: datasets/both_dataset_512/images/tst
-    oth: datasets/both_dataset_512/images/oth
-  coco_info_folder: coco_for_yolo_conversion_both
+    trn: datasets/szh_dataset_512/images/trn
+    val: datasets/szh_dataset_512/images/val
+    tst: datasets/szh_dataset_512/images/tst
+    oth: datasets/szh_dataset_512/images/oth
+  coco_info_folder: coco_for_yolo_conversion_szh
 
 assess_detections.py:
   working_directory: outputs/yolo
   output_folder: eval
   metrics_method: micro-average
   datasets:
-    path_ground_truth: ../coco_for_yolo_conversion_both
+    path_ground_truth: ../coco_for_yolo_conversion_szh
     ground_truth_files:
       trn: trn.json
       val: val.json
       tst: tst.json
-    path_detections: infer/run02
+    path_detections: infer/run03
     detections_files:
       trn: YOLO_trn_detections.json
       val: YOLO_val_detections.json

@@ -39,7 +39,7 @@ if os.path.exists(OUTPUT_DIR):
     os.system(f"rm -rf {OUTPUT_DIR}")
 os.makedirs(OUTPUT_DIR)
 
-logger.info("Registering COCO datasets...")
+logger.info("Reading COCO datasets...")
 images = []
 annotations = []
 for dataset in TAGGED_COCO_FILES.keys():
@@ -48,14 +48,14 @@ for dataset in TAGGED_COCO_FILES.keys():
     if isinstance(coco_data, dict):
         images.extend(coco_data['images'])
         annotations.extend(coco_data['annotations'])
-        logger.info(f"Dataset {dataset} has {len(coco_data['images'])} images and {len(coco_data['annotations'])} annotations.")
+        logger.info(f"Dataset \"{dataset}\" has {len(coco_data['images'])} images and {len(coco_data['annotations'])} annotations.")
     else:
         annotations.extend(coco_data)
         for im_dataset in cfg['coco_file_for_images'].keys():
             with open(cfg['coco_file_for_images'][im_dataset]) as fp:
                 image_info = json.load(fp)['images']
             images.extend(image_info)
-        logger.info(f"Dataset {dataset} has {len(image_info)} images and {len(coco_data)} annotations.")
+        logger.info(f"Dataset \"{dataset}\" has {len(image_info)} images and {len(coco_data)} annotations.")
 
 del coco_data
 
