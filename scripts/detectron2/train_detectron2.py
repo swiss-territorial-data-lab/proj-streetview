@@ -50,14 +50,7 @@ def main(cfg_file_path):
 
     DEBUG = cfg['debug_mode'] if 'debug_mode' in cfg.keys() else False
     RESUME_TRAINING = cfg['resume_training'] if 'resume_training' in cfg.keys() else False
-    
-    if 'model_zoo_checkpoint_url' in cfg['model_weights'].keys():
-        MODEL_ZOO_CHECKPOINT_URL = cfg['model_weights']['model_zoo_checkpoint_url']
-    else:
-        MODEL_ZOO_CHECKPOINT_URL = None
-        if not RESUME_TRAINING:
-            logger.critical("A model zoo checkpoint URL (\"model_zoo_checkpoint_url\") must be provided")
-            sys.exit(1)
+    MODEL_WEIGHTS = cfg['model_weights']
     
     COCO_FILES_DICT = cfg['COCO_files']
     COCO_TRN_FILE = COCO_FILES_DICT['trn']
@@ -112,6 +105,7 @@ def main(cfg_file_path):
     num_classes = get_number_of_classes(COCO_TRN_FILE)
 
     cfg.MODEL.ROI_HEADS.NUM_CLASSES=num_classes
+    cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES=num_classes
 
     if DEBUG:
         logger.warning('Setting a configuration for DEBUG only.')
@@ -122,11 +116,21 @@ def main(cfg_file_path):
     # ---- do training
     TRAINED_MODEL_PTH_FILE = os.path.join(LOG_SUBDIR, 'model_final.pth')
     if RESUME_TRAINING:
-        logger.info(f"Resuming training from {TRAINED_MODEL_PTH_FILE}")
-        cfg.MODEL.WEIGHTS = TRAINED_MODEL_PTH_FILE
+        if 'pth_file' in MODEL_WEIGHTS.keys():
+            PICK_UP_MODEL = MODEL_WEIGHTS['pth_file']
+            logger.info(f"Resuming training from {PICK_UP_MODEL}")
+        else:
+            logger.warning('No model path to resume from. Using "model_final.pth".')
+            PICK_UP_MODEL = TRAINED_MODEL_PTH_FILE
+        cfg.MODEL.WEIGHTS = PICK_UP_MODEL
         trainer = CocoTrainer(cfg)
         trainer.resume_or_load(resume=True)
     else:
+        if 'model_zoo_checkpoint_url' in MODEL_WEIGHTS.keys():
+            MODEL_ZOO_CHECKPOINT_URL = MODEL_WEIGHTS['model_zoo_checkpoint_url']
+        elif not RESUME_TRAINING:
+            logger.critical("A model zoo checkpoint URL (\"model_zoo_checkpoint_url\") must be provided")
+            sys.exit(1)
         logger.info(f"Training from scratch from {MODEL_ZOO_CHECKPOINT_URL}")
         cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(MODEL_ZOO_CHECKPOINT_URL)
         trainer = CocoTrainer(cfg)

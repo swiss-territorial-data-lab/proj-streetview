@@ -14,11 +14,18 @@ prepare_coco_data.py:
       overlap_y: 8
       padding_y: 736
     SZH:
-      width: 2048
-      height: 2048
-      overlap_x: 0
-      overlap_y: 0
-      padding_y: 0
+      lb4:
+        width: 2048
+        height: 2048
+        overlap_x: 0
+        overlap_y: 0
+        padding_y: 0
+      else:
+        width: 4016
+        height: 4016
+        overlap_x: 74
+        overlap_y: 74
+        padding_y: 0
   ratio_wo_annotations: 0.33
   seed: 42
   overwrite_images: False
