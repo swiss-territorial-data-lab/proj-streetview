@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from utils import misc
 from utils import metrics
-from utils.constants import CATEGORIES, DONE_MSG, SCATTER_PLOT_MODE
+from utils.constants import CATEGORIES, COCO_FOR_YOLO_FOLDER, DONE_MSG, MODEL_FOLDER, SCATTER_PLOT_MODE
 
 from loguru import logger
 logger = misc.format_logger(logger)
@@ -37,9 +37,9 @@ def main(cfg_file_path):
     OUTPUT_DIR = cfg['output_folder']
     
     DATASETS = cfg['datasets']
-    PATH_DETECTIONS = DATASETS['path_detections']
+    PATH_DETECTIONS = DATASETS['path_detections'].replace("<MODEL_FOLDER>", MODEL_FOLDER)
     DETECTION_FILES = DATASETS['detections_files']
-    PATH_GROUND_TRUTH = DATASETS['path_ground_truth']
+    PATH_GROUND_TRUTH = DATASETS['path_ground_truth'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
     GT_FILES = DATASETS['ground_truth_files']
     
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None

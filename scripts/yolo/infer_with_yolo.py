@@ -10,7 +10,7 @@ from pandas import DataFrame
 from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
-from utils.constants import DONE_MSG,TILE_SIZE
+from utils.constants import COCO_FOR_YOLO_FOLDER, DONE_MSG, MODEL_FOLDER, TILE_SIZE, YOLO_DATASET
 from utils.misc import format_logger
 from utils.yolo_to_coco import yolo_to_coco_annotations
 
@@ -31,11 +31,11 @@ with open(args.config_file) as fp:
 WORKING_DIR = cfg['working_directory']
 DATASET_IMAGES_DIR = cfg['dataset_images_folder']
 
-MODEL = cfg['model']
+MODEL = cfg['model'].replace("<MODEL_FOLDER>", MODEL_FOLDER)
 PROJECT = cfg['project']
 PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 
-COCO_INFO_DIR = cfg['coco_info_folder']
+COCO_INFO_DIR = cfg['coco_info_folder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
 
 os.chdir(WORKING_DIR)
 os.makedirs(os.path.join(PROJECT, PROJECT_NAME), exist_ok=True)
@@ -52,7 +52,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
     logger.info(f"Perform inference...")
     model = YOLO(MODEL)
     results = model(
-        path, 
+        path.replace("<YOLO_DATASET>", YOLO_DATASET),
         conf=0.05,
         imgsz=TILE_SIZE, retina_masks=True, 
         project=PROJECT, name=PROJECT_NAME, exist_ok=True, verbose=False, stream=True

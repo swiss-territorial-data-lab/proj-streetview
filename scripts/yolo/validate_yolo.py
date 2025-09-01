@@ -10,7 +10,7 @@ from pandas import concat
 from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
-from utils.constants import YOLO_TRAINING_PARAMS
+from utils.constants import MODEL_FOLDER, YOLO_TRAINING_PARAMS
 from utils.misc import format_logger
 
 logger = format_logger(logger)
@@ -29,7 +29,7 @@ with open(args.config_file) as fp:
 
 WORKING_DIR = cfg['working_directory']
 
-MODEL = cfg['model']
+MODEL = cfg['model'].replace("<MODEL_FOLDER>", MODEL_FOLDER)
 PROJECT = cfg['project']
 PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 

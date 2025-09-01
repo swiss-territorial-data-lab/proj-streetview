@@ -14,7 +14,7 @@ import pandas as pd
 from itertools import product
 from math import ceil
 
-from utils.constants import CATEGORIES, IMAGE_DIR, TILE_SIZE
+from utils.constants import CATEGORIES, COCO_FOR_YOLO_FOLDER, IMAGE_DIR, TILE_SIZE
 from utils.misc import assemble_coco_json, format_logger, read_coco_dataset, segmentation_to_polygon
 
 logger = format_logger(logger)
@@ -105,16 +105,17 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tas
                 continue
 
             # Draw a black mask on reject annotations
-            annotations_to_mask_df = rejected_annotations_df[rejected_annotations_df.file_name == tile_name]
-            for ann in annotations_to_mask_df.itertuples():
-                bbox = [int(b) for b in ann.bbox]
-                cv2.rectangle(
-                    img=tile, 
-                    pt1=(bbox[0], bbox[1]), 
-                    pt2=(min(bbox[0] + round(bbox[2]*1.1), TILE_SIZE), min(bbox[1] + round(bbox[3]*1.1), TILE_SIZE)), 
-                    color=(0, 0, 0), 
-                    thickness=-1
-                )
+            if not rejected_annotations_df.empty:
+                annotations_to_mask_df = rejected_annotations_df[rejected_annotations_df.file_name == tile_name]
+                for ann in annotations_to_mask_df.itertuples():
+                    bbox = [int(b) for b in ann.bbox]
+                    cv2.rectangle(
+                        img=tile, 
+                        pt1=(bbox[0], bbox[1]), 
+                        pt2=(min(bbox[0] + round(bbox[2]*1.1), TILE_SIZE), min(bbox[1] + round(bbox[3]*1.1), TILE_SIZE)), 
+                        color=(0, 0, 0), 
+                        thickness=-1
+                    )
                 
             if prepare_coco and prepare_yolo:
                 tile_path = os.path.join(tasks_dict['coco']['subfolder'], tile_name)
@@ -174,7 +175,7 @@ def main(cfg_file_path):
     WORKING_DIR = cfg['working_directory']
 
     ORIGINAL_COCO_FILES_DICT = cfg['original_COCO_files']
-    VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files']
+    VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files'] if 'validated_COCO_files' in cfg.keys() else {}
     CLIPPING_PARAMS = cfg['clipping_params']
     RATIO_WO_ANNOTATIONS = cfg['ratio_wo_annotations']
     SEED = cfg['seed']
@@ -200,10 +201,6 @@ def main(cfg_file_path):
         logger.critical("At least one of PREPARE_COCO or PREPARE_YOLO must be True.")
         sys.exit(1)
 
-    if not PREPARE_COCO and not PREPARE_YOLO:
-        logger.critical("At least one of PREPARE_COCO or PREPARE_YOLO must be True.")
-        sys.exit(1)
-
     os.chdir(WORKING_DIR)
     written_files = []
 
@@ -217,7 +214,8 @@ def main(cfg_file_path):
         OUTPUT_DIRS.append(os.path.join(COCO_DIR, OUTPUT_DIR_IMAGES))
     if PREPARE_YOLO:
         # YOLO conversion requires tiles to be saved in the same folder as COCO files
-        YOLO_DIR = TASKS['yolo']['subfolder']
+        YOLO_DIR = TASKS['yolo']['subfolder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
+        TASKS['yolo']['subfolder'] = TASKS['yolo']['subfolder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
         os.makedirs(YOLO_DIR, exist_ok=True)
         OUTPUT_DIRS.append(os.path.join(YOLO_DIR))
 
@@ -229,6 +227,7 @@ def main(cfg_file_path):
     for dataset, coco_file in ORIGINAL_COCO_FILES_DICT.items():
         images_df = read_coco_dataset(coco_file)
         images_df['original_id'] = images_df['image_id']
+        # Make image IDs unique and consistent
         images_df['image_id'] = images_df['image_id'] + max_id
         original_imgs_and_anns_dict[dataset] = images_df
         max_id += len(images_df)
@@ -242,43 +241,53 @@ def main(cfg_file_path):
 
     # Read validated COCO dataset
     valid_imgs_and_anns_dict = {}
-    for dataset, coco_file in VALIDATED_COCO_FILES_DICT.items():
-        images_df = read_coco_dataset(coco_file)
-        images_df['original_id'] = images_df['image_id']
-        images_df['image_id'] = images_df.drop(columns='image_id').merge(
-            original_imgs_and_anns_dict[dataset],
-            how='left', on='original_id'
-        ).image_id
-        assert images_df['image_id'].isna().sum() == 0, "Validated COCO dataset contains images that are not in the original COCO dataset."
-        valid_imgs_and_anns_dict[dataset] = images_df
+    if isinstance(VALIDATED_COCO_FILES_DICT, dict):
+        # Case: training
+        for dataset, coco_file in VALIDATED_COCO_FILES_DICT.items():
+            images_df = read_coco_dataset(coco_file)
+            images_df['original_id'] = images_df['image_id']
+            # Get unique IDs from the original COCO dataset
+            images_df['image_id'] = images_df.drop(columns='image_id').merge(
+                original_imgs_and_anns_dict[dataset],
+                how='left', on='original_id'
+            ).image_id
+            assert images_df['image_id'].isna().sum() == 0, "Validated COCO dataset contains images that are not in the original COCO dataset."
+            valid_imgs_and_anns_dict[dataset] = images_df
+    else:
+        # Case: inference-only
+        valid_imgs_and_anns_dict = {key: pd.DataFrame() for key in original_imgs_and_anns_dict.keys()}
 
     if DEBUG:
         logger.info("Debug mode activated. Only first 100 images are processed.")
         for key in original_imgs_and_anns_dict.keys():
             original_imgs_and_anns_dict[key] = original_imgs_and_anns_dict[key].head(100)
-            valid_imgs_and_anns_dict[key] = valid_imgs_and_anns_dict[key].head(150)
+            valid_imgs_and_anns_dict[key] = valid_imgs_and_anns_dict[key].head(200)
 
     logger.info(f"Found {sum([len(df) for df in valid_imgs_and_anns_dict.values()])} images for validated annotations.")
 
-    logger.info("Splitting images into train, val and test sets based on ratio 70% / 15% / 15%...")
-    for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
-        trn_tiles = valid_imgs_and_anns_df.sample(frac=0.7, random_state=SEED)
-        val_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
-        tst_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
+    if all(df.empty for df in valid_imgs_and_anns_dict.values()):
+        logger.info("No validated annotations found. Only inference is possible.")
+        MAKE_OTHER_DATASET = True
+    else:
+        logger.info("Splitting images into train, val and test sets based on ratio 70% / 15% / 15%...")
+        for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
+            trn_tiles = valid_imgs_and_anns_df.sample(frac=0.7, random_state=SEED)
+            val_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"])].sample(frac=0.5, random_state=SEED)
+            tst_tiles = valid_imgs_and_anns_df[~valid_imgs_and_anns_df["image_id"].isin(trn_tiles["image_id"].to_list() + val_tiles["image_id"].to_list())]
 
-        # Map dataset on the images
-        original_imgs_and_anns_df = original_imgs_and_anns_dict[key]
-        valid_imgs_and_anns_df["dataset"] = None
-        for dataset, df in {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}.items():
-            valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
-            original_imgs_and_anns_df.loc[original_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
-        assert all(valid_imgs_and_anns_df["dataset"].notna()), "Not all images were assigned to a dataset"
-        original_imgs_and_anns_df.loc[original_imgs_and_anns_df.dataset.isna(), "dataset"] = "oth"
+            # Map dataset on the images
+            original_imgs_and_anns_df = original_imgs_and_anns_dict[key]
+            valid_imgs_and_anns_df["dataset"] = None
+            for dataset, df in {"trn": trn_tiles, "val": val_tiles, "tst": tst_tiles}.items():
+                valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+                original_imgs_and_anns_df.loc[original_imgs_and_anns_df["image_id"].isin(df["image_id"]), "dataset"] = dataset
+            assert all(valid_imgs_and_anns_df["dataset"].notna()), "Not all images were assigned to a dataset"
+            original_imgs_and_anns_df.loc[original_imgs_and_anns_df.dataset.isna(), "dataset"] = "oth"
 
-        logger.info(f"Found {len(trn_tiles)} images in train set, {len(val_tiles)} images in val set and {len(tst_tiles)} images in test set for the {key} dataset.")
-        if any(original_imgs_and_anns_df.dataset=='oth'):
-            logger.info(f"Found {len(original_imgs_and_anns_df[original_imgs_and_anns_df.dataset=='oth'])} images without validated annotations.")
-    del images_df, trn_tiles, val_tiles, tst_tiles
+            logger.info(f"Found {len(trn_tiles)} images in train set, {len(val_tiles)} images in val set and {len(tst_tiles)} images in test set for the {key} dataset.")
+            if any(original_imgs_and_anns_df.dataset=='oth'):
+                logger.info(f"Found {len(original_imgs_and_anns_df[original_imgs_and_anns_df.dataset=='oth'])} images without validated annotations.")
+        del trn_tiles, val_tiles, tst_tiles
 
     # Iterate through annotations and clip them into tiles
     annotation_id = 0
@@ -319,94 +328,99 @@ def main(cfg_file_path):
             all_tiles_df = pd.DataFrame(tiles)
 
             # Clip annotations to tiles
-            annotations = []
-            border_annotations = 0
-            for ann in image.annotations:
-                # Check if annotation is valid
-                rejected_annotation = True
-                validated_annotations = valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df.image_id==image.image_id, 'annotations'].iloc[0]
-                validated_ann = [a for a in validated_annotations if a["id"] == ann["id"]]
-                if len(validated_ann) == 1:
-                    # Case: annotation is valid
-                    ann = validated_ann[0]
-                    rejected_annotation = False
-                elif len(validated_ann) > 1:
-                    logger.critical(f"Annotation {ann['id']} is not unique in validated annotations.")
-                    sys.exit(1)
+            if valid_imgs_and_anns_df.empty:
+                # Case: inference-only
+                tile_annotations_df = pd.DataFrame(columns=['image_id', 'object_id', 'id', 'bbox', 'area', 'category_id', 'iscrowd', 'segmentation'])
+            else:
+                # Case: training
+                annotations = []
+                border_annotations = 0
+                for ann in image.annotations:
+                    # Check if annotation is valid
+                    rejected_annotation = True
+                    validated_annotations = valid_imgs_and_anns_df.loc[valid_imgs_and_anns_df.image_id==image.image_id, 'annotations'].iloc[0]
+                    validated_ann = [a for a in validated_annotations if a["id"] == ann["id"]]
+                    if len(validated_ann) == 1:
+                        # Case: annotation is valid
+                        ann = validated_ann[0]
+                        rejected_annotation = False
+                    elif len(validated_ann) > 1:
+                        logger.critical(f"Annotation {ann['id']} is not unique in validated annotations.")
+                        sys.exit(1)
 
-                # Check if annotation is outside the image
-                ann_origin_x, ann_origin_y, ann_width, ann_height = ann["bbox"]
-                if ann_origin_x + ann_width <= 0 or ann_origin_x >= params["width"] or ann_origin_y + ann_height <= 0 or ann_origin_y >= params["height"]:
-                    excluded_annotations += 1
-                    bbox_coordinates_dict = {'min_x': ann_origin_x, 'max_x': ann_origin_x + ann_width, 'min_y': ann_origin_y, 'max_y': ann_origin_y + ann_height}
-                    for key, fct in {'min_x': min, 'max_x': max, 'min_y': min, 'max_y': max}.items():
-                        extreme_coordinates_dict[key] = fct(extreme_coordinates_dict[key], bbox_coordinates_dict[key])
-                    logger.warning(f"Annotation {ann['id']} is outside the image {image.file_name}. Bbox: {[round(value) for value in ann['bbox']]}.")
-                    continue
-                if ann_origin_y > params["height"] - params["padding_y"]:
-                    border_annotations += 1
-                    continue
-
-                for tile in tiles:
-                    # Get tile coordinates
-                    tile_min_x = int(tile["file_name"].split("_")[-2])
-                    tile_max_x = tile_min_x + TILE_SIZE
-                    tile_min_y = int(tile["file_name"].split("_")[-1].rstrip(".jpg"))
-                    tile_max_y = tile_min_y + TILE_SIZE
-
-                    # Check if annotation is outside the tile
-                    if ann_origin_x >= tile_max_x or ann_origin_x + ann_width <= tile_min_x or ann_origin_y >= tile_max_y or ann_origin_y + ann_height <= tile_min_y:
+                    # Check if annotation is outside the image
+                    ann_origin_x, ann_origin_y, ann_width, ann_height = ann["bbox"]
+                    if ann_origin_x + ann_width <= 0 or ann_origin_x >= params["width"] or ann_origin_y + ann_height <= 0 or ann_origin_y >= params["height"]:
+                        excluded_annotations += 1
+                        bbox_coordinates_dict = {'min_x': ann_origin_x, 'max_x': ann_origin_x + ann_width, 'min_y': ann_origin_y, 'max_y': ann_origin_y + ann_height}
+                        for key, fct in {'min_x': min, 'max_x': max, 'min_y': min, 'max_y': max}.items():
+                            extreme_coordinates_dict[key] = fct(extreme_coordinates_dict[key], bbox_coordinates_dict[key])
+                        logger.warning(f"Annotation {ann['id']} is outside the image {image.file_name}. Bbox: {[round(value) for value in ann['bbox']]}.")
                         continue
-
-                    # else, scale coordinates and clip if necessary
-                    # bbox
-                    x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
-                    y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
-                    new_coords_tuples = [(x1, y1), (x1 + new_width, y1 + new_height)]
-                    if borderline_intersection(new_coords_tuples):
+                    if ann_origin_y > params["height"] - params["padding_y"]:
                         border_annotations += 1
                         continue
 
-                    if rejected_annotation:
-                        rejected_annotations_df = pd.concat((rejected_annotations_df, pd.DataFrame.from_records([{
-                            "id": ann["id"], "file_name": tile["file_name"], "bbox": [x1, y1, new_width, new_height], 'image_name': image.file_name,
-                        }])), ignore_index=True)
+                    for tile in tiles:
+                        # Get tile coordinates
+                        tile_min_x = int(tile["file_name"].split("_")[-2])
+                        tile_max_x = tile_min_x + TILE_SIZE
+                        tile_min_y = int(tile["file_name"].split("_")[-1].rstrip(".jpg"))
+                        tile_max_y = tile_min_y + TILE_SIZE
+
+                        # Check if annotation is outside the tile
+                        if ann_origin_x >= tile_max_x or ann_origin_x + ann_width <= tile_min_x or ann_origin_y >= tile_max_y or ann_origin_y + ann_height <= tile_min_y:
+                            continue
+
+                        # else, scale coordinates and clip if necessary
+                        # bbox
+                        x1, new_width = check_bbox_plausibility(ann_origin_x - tile_min_x, ann_width)
+                        y1, new_height = check_bbox_plausibility(ann_origin_y - tile_min_y, ann_height)
                         new_coords_tuples = [(x1, y1), (x1 + new_width, y1 + new_height)]
-                    else:
-                        # segmentation
-                        old_coords = ann["segmentation"][0]
-                        coords = [get_new_coordinate(old_coords[0], tile_min_x), get_new_coordinate(old_coords[1], tile_min_y)] # set first coordinates
-                        new_coords_tuples = []
-                        for i in range(2, len(old_coords), 2):
-                            new_x = get_new_coordinate(old_coords[i], tile_min_x)
-                            new_y = get_new_coordinate(old_coords[i+1], tile_min_y)
-                            if new_x in [0, TILE_SIZE] and coords[-2] == new_x or new_y in [0, TILE_SIZE] and coords[-1] == new_y or (new_x, new_y) in new_coords_tuples:
-                                continue 
-                            new_coords_tuples.append((new_x, new_y))
-                            coords.extend([new_x, new_y])
-                        assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
                         if borderline_intersection(new_coords_tuples):
                             border_annotations += 1
                             continue
 
-                        annotations.append(dict(
-                            id=int(annotation_id),
-                            object_id = ann["object_id"],
-                            image_id=tile["id"],
-                            category_id=int(1),  # Currently, single class
-                            iscrowd=int(ann["iscrowd"]),
-                            bbox=[x1, y1, new_width, new_height],
-                            area=segmentation_to_polygon([coords]).area,
-                            segmentation=[coords]
-                        ))
-                        annotation_id += 1
+                        if rejected_annotation:
+                            rejected_annotations_df = pd.concat((rejected_annotations_df, pd.DataFrame.from_records([{
+                                "id": ann["id"], "file_name": tile["file_name"], "bbox": [x1, y1, new_width, new_height], 'image_name': image.file_name,
+                            }])), ignore_index=True)
+                            new_coords_tuples = [(x1, y1), (x1 + new_width, y1 + new_height)]
+                        else:
+                            # segmentation
+                            old_coords = ann["segmentation"][0]
+                            coords = [get_new_coordinate(old_coords[0], tile_min_x), get_new_coordinate(old_coords[1], tile_min_y)] # set first coordinates
+                            new_coords_tuples = []
+                            for i in range(2, len(old_coords), 2):
+                                new_x = get_new_coordinate(old_coords[i], tile_min_x)
+                                new_y = get_new_coordinate(old_coords[i+1], tile_min_y)
+                                if new_x in [0, TILE_SIZE] and coords[-2] == new_x or new_y in [0, TILE_SIZE] and coords[-1] == new_y or (new_x, new_y) in new_coords_tuples:
+                                    continue 
+                                new_coords_tuples.append((new_x, new_y))
+                                coords.extend([new_x, new_y])
+                            assert all(value <= TILE_SIZE and value >= 0 for value in coords), "Mask outside tile"
+                            if borderline_intersection(new_coords_tuples):
+                                border_annotations += 1
+                                continue
 
-            tile_annotations_df = pd.DataFrame(
-                annotations,
-                columns=['image_id'] if len(annotations) == 0 else annotations[0].keys()
-            )
-            assert tile_annotations_df.shape[0] + rejected_annotations_df[rejected_annotations_df.image_name == image.file_name].shape[0] + border_annotations + excluded_annotations\
-                >= len(image.annotations), "Missing annotations"
+                            annotations.append(dict(
+                                id=int(annotation_id),
+                                object_id = ann["object_id"],
+                                image_id=tile["id"],
+                                category_id=int(1),  # Currently, single class
+                                iscrowd=int(ann["iscrowd"]),
+                                bbox=[x1, y1, new_width, new_height],
+                                area=segmentation_to_polygon([coords]).area,
+                                segmentation=[coords]
+                            ))
+                            annotation_id += 1
+
+                tile_annotations_df = pd.DataFrame(
+                    annotations,
+                    columns=['image_id'] if len(annotations) == 0 else annotations[0].keys()
+                )
+                assert tile_annotations_df.shape[0] + rejected_annotations_df[rejected_annotations_df.image_name == image.file_name].shape[0] + border_annotations + excluded_annotations\
+                    >= len(image.annotations), "Missing annotations"
             condition_annotations = all_tiles_df["id"].isin(tile_annotations_df["image_id"].unique())
 
             if RATIO_WO_ANNOTATIONS != 0 and len(annotations) == 0:

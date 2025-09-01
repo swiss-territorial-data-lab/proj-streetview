@@ -1,14 +1,14 @@
 transform_detections.py:
   working_directory: .
-  output_folder: outputs/yolo/infer/run03
+  output_folder: outputs/yolo/infer/<MODEL_FOLDER>
   detections_files:
-    trn: outputs/yolo/infer/run03/YOLO_trn_detections.json
-    val: outputs/yolo/infer/run03/YOLO_val_detections.json
-    tst: outputs/yolo/infer/run03/YOLO_tst_detections.json
-    oth: outputs/yolo/infer/run03/YOLO_oth_detections.json
+    trn: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_trn_detections.json
+    val: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_val_detections.json
+    tst: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_tst_detections.json
+    oth: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_oth_detections.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250731.json
+    SZH: data/SZH/valid_zh_250825.json
   id_correspondence: outputs/original_ids.csv
   score_threshold: 0.20
 
@@ -18,12 +18,12 @@ clipped_labels_to_panoramic.py:
   output_folder: outputs/yolo/infer
   image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
   labels_files:
-    trn: outputs/coco_for_yolo_conversion_both/trn.json
-    val: outputs/coco_for_yolo_conversion_both/val.json
-    tst: outputs/coco_for_yolo_conversion_both/tst.json
+    trn: outputs/<COCO_FOR_YOLO_FOLDER>/trn.json
+    val: outputs/<COCO_FOR_YOLO_FOLDER>/val.json
+    tst: outputs/<COCO_FOR_YOLO_FOLDER>/tst.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250731.json
+    SZH: data/SZH/valid_zh_250825.json
   id_correspondence: outputs/original_ids.csv
 
 
@@ -37,7 +37,7 @@ assess_detections.py:
       trn: trn_COCO_panoptic_labels.json
       val: val_COCO_panoptic_labels.json
       tst: tst_COCO_panoptic_labels.json
-    path_detections: infer/run03
+    path_detections: infer/<MODEL_FOLDER>
     detections_files:
       trn: trn_COCO_panoptic_detections.json
       val: val_COCO_panoptic_detections.json

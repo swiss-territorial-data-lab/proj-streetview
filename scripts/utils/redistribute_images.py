@@ -8,6 +8,7 @@ from yaml import load, FullLoader
 
 import pandas as pd
 
+from constants import COCO_FOR_YOLO_FOLDER, YOLO_DATASET
 from misc import format_logger
 
 logger = format_logger(logger)
@@ -27,8 +28,8 @@ with open(cfg_file_path) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
 WORKING_DIR = cfg['working_directory']
-IMAGE_DIR = cfg['image_folder']
-OUTPUT_DIR = cfg['output_folder']
+IMAGE_DIR = cfg['image_folder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
+OUTPUT_DIR = cfg['output_folder'].replace("<YOLO_DATASET>", YOLO_DATASET)
 COCO_FILES_DICT = cfg['COCO_files']
 OVERWRITE = cfg['overwrite']
 

@@ -28,6 +28,7 @@ def train_yolo(config):
 
     #  Charge un modèle YOLO pré-entraîné (ex: yolov8n.pt)
     model = YOLO(config["model"] + ".pt")
+    config.pop("model")
 
     # 易 Sélection du bon GPU (si disponible)
     local_rank = int(os.environ.get("CUDA_VISIBLE_DEVICES", "0"))
@@ -35,13 +36,9 @@ def train_yolo(config):
 
     #  Lance l’entraînement avec les hyperparamètres fournis
     _ = model.train(
-        epochs=config["epochs"],                     # Nombre d’époques
-        lr0=config["lr0"],             # Taux d’apprentissage initial
-        lrf=config["lrf"],             # Taux d’apprentissage final
-        optimizer=config["optimizer"], # Optimiseur (SGD, Adam, etc.)
-        freeze=config["freeze"],       # Nombre de couches à geler
         device=device,
         workers=0,                      # Pas de workers multi-thread pour éviter bugs Ray
+        **config,
         **YOLO_TRAINING_PARAMS
     )
 
@@ -76,10 +73,8 @@ print(ray.cluster_resources())
 search_space = {
     "model": tune.grid_search(["yolo11s-seg", "yolo11m-seg"]),
     "lr0": tune.grid_search([0.003, 0.005, 0.01]),
-    "lrf": tune.grid_search([0.005, 0.01]),
     "optimizer": tune.grid_search(["SGD", "Adam"]),
     "epochs": tune.grid_search([50, 75]),
-    "freeze": tune.grid_search([0, 6])
 }
 
 # ⚙️ Lance les expériences Ray Tune
