@@ -4,13 +4,12 @@ get_stat_images.py:
 
 prepare_coco_data.py:
   working_directory: .
-  output_dir: outputs/<DETECTRON2_FOLDER>
   original_COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
-    SZH: data/SZH/zh_COCO_13033.json
+    # RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: data/SZH/zh_COCO.json
   validated_COCO_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250825.json
+    # RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
+    # SZH: data/SZH/valid_zh_250825.json
   clipping_params:
     RCNE:
       width: 8000
@@ -33,8 +32,15 @@ prepare_coco_data.py:
         padding_y: 0
   ratio_wo_annotations: 0.25
   seed: 42
-  make_other_dataset: False
   overwrite_images: False
+  tasks:
+    make_other_dataset: True
+    coco:
+      prepare_data: True
+      subfolder: outputs/<DETECTRON2_FOLDER>
+    yolo:
+      prepare_data: True
+      subfolder: outputs/<COCO_FOR_YOLO_FOLDER>
 
 train_detectron2.py:
   debug_mode: False
@@ -56,13 +62,13 @@ infer_with_detectron2.py:
   working_directory: outputs/<DETECTRON2_FOLDER>
   sample_tagged_img_subfolder: sample_tagged_images
   COCO_files:           # relative paths, w/ respect to the working_folder
-    trn: COCO_trn.json
-    val: COCO_val.json
-    tst: COCO_tst.json
+    # trn: COCO_trn.json
+    # val: COCO_val.json
+    # tst: COCO_tst.json
     oth: COCO_oth.json
   detectron2_config_file: ../../config/detectron2_config.yaml # path relative to the working_folder
   model_weights:
-    pth_file: logs/model_0001999.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
+    pth_file: ../detectron2_both/logs/model_final.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
   image_metadata_json: img_metadata.json
   score_lower_threshold: 0.05
 
@@ -70,7 +76,6 @@ infer_with_detectron2.py:
 assess_detections.py:
   working_directory: outputs/<DETECTRON2_FOLDER>
   output_folder: eval
-  metrics_method: micro-average
   datasets:
     path_ground_truth: .
     ground_truth_files:

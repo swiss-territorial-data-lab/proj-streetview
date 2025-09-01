@@ -82,7 +82,7 @@ validate_yolo.py:
 infer_with_yolo.py:
   working_directory: outputs
   project: yolo/infer
-  model: yolo/train/<MODEL_FOLDER>/weights/best.pt
+  model: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/<MODEL_FOLDER>/weights/best.pt
   dataset_images_folder:
     trn: datasets/<YOLO_DATASET>/images/trn
     val: datasets/<YOLO_DATASET>/images/val
@@ -93,7 +93,6 @@ infer_with_yolo.py:
 assess_detections.py:
   working_directory: outputs/yolo
   output_folder: eval
-  metrics_method: micro-average
   datasets:
     path_ground_truth: ../<COCO_FOR_YOLO_FOLDER>
     ground_truth_files:

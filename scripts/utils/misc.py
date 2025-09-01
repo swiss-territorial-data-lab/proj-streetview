@@ -7,9 +7,10 @@ from pandas import DataFrame
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
 from shapely.validation import explain_validity, make_valid
 
-from collections.abc import Iterable
-
-from constants import COCO_FOR_YOLO_FOLDER, DETECTRON_FOLDER, MODEL_FOLDER, YOLO_DATASET
+try:
+    from constants import COCO_FOR_YOLO_FOLDER, DETECTRON_FOLDER, MODEL_FOLDER, YOLO_DATASET
+except ModuleNotFoundError:
+    from utils.constants import COCO_FOR_YOLO_FOLDER, DETECTRON_FOLDER, MODEL_FOLDER, YOLO_DATASET
 
 
 def assemble_coco_json(images, annotations, categories):
@@ -72,12 +73,13 @@ def fill_path(path_iterable):
     Returns:
         str or list: The path(s) with the special strings replaced.
     """
-    if not isinstance(path_iterable, Iterable):
+    if isinstance(path_iterable, str):
         path_iterable = [path_iterable]
 
     path = []
+    replace_str_dict = {"<COCO_FOR_YOLO_FOLDER>": COCO_FOR_YOLO_FOLDER, "<DETECTRON2_FOLDER>": DETECTRON_FOLDER, "<MODEL_FOLDER>": MODEL_FOLDER, "<YOLO_DATASET>": YOLO_DATASET}
     for path_item in path_iterable:
-        for string_template, path_part in {"<COCO_FOR_YOLO_FOLDER>": COCO_FOR_YOLO_FOLDER, "<DETECTRON2_FOLDER>": DETECTRON_FOLDER, "<MODEL_FOLDER>": MODEL_FOLDER, "<YOLO_DATASET>": YOLO_DATASET}:
+        for string_template, path_part in replace_str_dict.items():
             if string_template in path_item:
                 path_item = path_item.replace(string_template, path_part)
         path.append(path_item)

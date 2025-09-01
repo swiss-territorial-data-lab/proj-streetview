@@ -269,6 +269,7 @@ def main(cfg_file_path):
     if all(df.empty for df in valid_imgs_and_anns_dict.values()):
         logger.info("No validated annotations found. Only inference is possible.")
         MAKE_OTHER_DATASET = True
+        RATIO_WO_ANNOTATIONS = 0
     else:
         logger.info("Splitting images into train, val and test sets based on ratio 70% / 15% / 15%...")
         for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
@@ -329,12 +330,12 @@ def main(cfg_file_path):
             all_tiles_df = pd.DataFrame(tiles)
 
             # Clip annotations to tiles
+            annotations = []
             if valid_imgs_and_anns_df.empty:
                 # Case: inference-only
                 tile_annotations_df = pd.DataFrame(columns=['image_id', 'object_id', 'id', 'bbox', 'area', 'category_id', 'iscrowd', 'segmentation'])
             else:
                 # Case: training
-                annotations = []
                 border_annotations = 0
                 for ann in image.annotations:
                     # Check if annotation is valid
@@ -422,6 +423,7 @@ def main(cfg_file_path):
                 )
                 assert tile_annotations_df.shape[0] + rejected_annotations_df[rejected_annotations_df.image_name == image.file_name].shape[0] + border_annotations + excluded_annotations\
                     >= len(image.annotations), "Missing annotations"
+                
             condition_annotations = all_tiles_df["id"].isin(tile_annotations_df["image_id"].unique())
 
             if RATIO_WO_ANNOTATIONS != 0 and len(annotations) == 0:
@@ -471,7 +473,7 @@ def main(cfg_file_path):
 
             del all_tiles_df, condition_annotations, tile_annotations_df, selected_tiles
                 
-    logger.info(f"Found {tot_tiles_with_ann} images with annotations and {tot_tiles_without_ann} images without annotations.")
+    logger.info(f"Found {tot_tiles_with_ann} tiles with annotations and {tot_tiles_without_ann} tiles without annotations for training.")
     if excluded_annotations > 0:
         logger.warning(f"{excluded_annotations} annotations were excluded because they were outside of their designated image.")
         logger.warning(f"Most extrem coordinates were:")

@@ -88,7 +88,7 @@ def main(cfg_file_path):
     logger.info(f'Using model {MODEL_PTH_FILE}.')
 
     # get the number of classes
-    num_classes = get_number_of_classes(COCO_FILES_DICT["trn"])
+    num_classes = get_number_of_classes(COCO_FILES_DICT["trn"] if "trn" in COCO_FILES_DICT.keys() else COCO_FILES_DICT["oth"])
 
    # set the number of classes to detect 
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = num_classes    

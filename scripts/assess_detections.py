@@ -44,7 +44,7 @@ def main(cfg_file_path):
     
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
     IOU_THRESHOLD = cfg['iou_threshold'] if 'iou_threshold' in cfg.keys() else 0.25
-    METHOD = cfg['metrics_method']
+    METHOD = cfg['metrics_method'] if 'metrics_method' in cfg.keys() else 'macro-average'
     DEBUG = False
 
     WORKING_DIR, OUTPUT_DIR, PATH_DETECTIONS, PATH_GROUND_TRUTH = misc.fill_path([WORKING_DIR, OUTPUT_DIR, PATH_DETECTIONS, PATH_GROUND_TRUTH])

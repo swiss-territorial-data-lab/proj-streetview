@@ -33,11 +33,11 @@ DATASET_IMAGES_DIR = cfg['dataset_images_folder']
 
 MODEL = cfg['model']
 PROJECT = cfg['project']
-PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 
 COCO_INFO_DIR = cfg['coco_info_folder']
 
-WORKING_DIR, COCO_INFO_DIR, MODEL, PROJECT, PROJECT_NAME = fill_path([WORKING_DIR, COCO_INFO_DIR, MODEL, PROJECT, PROJECT_NAME])
+WORKING_DIR, COCO_INFO_DIR, MODEL, PROJECT= fill_path([WORKING_DIR, COCO_INFO_DIR, MODEL, PROJECT])
+PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 
 os.chdir(WORKING_DIR)
 os.makedirs(os.path.join(PROJECT, PROJECT_NAME), exist_ok=True)
@@ -54,7 +54,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
     logger.info(f"Perform inference...")
     model = YOLO(MODEL)
     results = model(
-        path,
+        fill_path(path),
         conf=0.05,
         imgsz=TILE_SIZE, retina_masks=True, 
         project=PROJECT, name=PROJECT_NAME, exist_ok=True, verbose=False, stream=True
