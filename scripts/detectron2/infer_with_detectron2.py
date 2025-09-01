@@ -31,7 +31,7 @@ sys.path.insert(0, parent_dir)
 
 sys.path.insert(1, 'scripts')
 from utils.detectron2 import detectron2dets_to_features
-from utils.misc import format_logger, get_number_of_classes
+from utils.misc import fill_path, format_logger, get_number_of_classes
 from utils.constants import DONE_MSG
 
 from loguru import logger
@@ -63,7 +63,9 @@ def main(cfg_file_path):
     OUTPUT_DIR = cfg['output_folder'] if 'output_folder' in cfg.keys() else '.'
     SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder'] if 'sample_tagged_img_subfolder' in cfg.keys() else False
 
-    SCORE_LOWER_THR = cfg['score_lower_threshold'] 
+    SCORE_LOWER_THR = cfg['score_lower_threshold']
+
+    WORKING_DIR, OUTPUT_DIR = fill_path([WORKING_DIR, OUTPUT_DIR])
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -74,7 +76,7 @@ def main(cfg_file_path):
 
     # ---- register datasets
     for dataset_key, coco_file in COCO_FILES_DICT.items():
-        register_coco_instances(dataset_key, {}, coco_file, "")
+        register_coco_instances(dataset_key, {}, fill_path(coco_file), "")
 
     # ---- set up Detectron2's configuration
 

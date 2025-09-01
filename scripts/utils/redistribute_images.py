@@ -8,8 +8,7 @@ from yaml import load, FullLoader
 
 import pandas as pd
 
-from constants import COCO_FOR_YOLO_FOLDER, YOLO_DATASET
-from misc import format_logger
+from misc import fill_path, format_logger
 
 logger = format_logger(logger)
 
@@ -28,18 +27,19 @@ with open(cfg_file_path) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
 WORKING_DIR = cfg['working_directory']
-IMAGE_DIR = cfg['image_folder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
-OUTPUT_DIR = cfg['output_folder'].replace("<YOLO_DATASET>", YOLO_DATASET)
+IMAGE_DIR = cfg['image_folder']
+OUTPUT_DIR = cfg['output_folder']
 COCO_FILES_DICT = cfg['COCO_files']
 OVERWRITE = cfg['overwrite']
 
+WORKING_DIR, IMAGE_DIR, OUTPUT_DIR = fill_path([WORKING_DIR, IMAGE_DIR, OUTPUT_DIR])
 os.chdir(WORKING_DIR)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 for dataset, coco_file in COCO_FILES_DICT.items():
     dataset_dir = os.path.join(OUTPUT_DIR, dataset)
     os.makedirs(dataset_dir, exist_ok=True)
-    with open(coco_file) as fp:
+    with open(fill_path(coco_file)) as fp:
         images_df = pd.DataFrame(json.load(fp)['images']).drop_duplicates(subset=["file_name"])
 
     for index, row in tqdm(images_df.iterrows(), desc=f"Linking images for {dataset} dataset", total=len(images_df)):

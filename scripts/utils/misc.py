@@ -7,6 +7,10 @@ from pandas import DataFrame
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
 from shapely.validation import explain_validity, make_valid
 
+from collections.abc import Iterable
+
+from constants import COCO_FOR_YOLO_FOLDER, DETECTRON_FOLDER, MODEL_FOLDER, YOLO_DATASET
+
 
 def assemble_coco_json(images, annotations, categories):
     """
@@ -51,29 +55,34 @@ def assign_groups(row, group_index):
     return row
     
 
-
-def format_logger(logger):
+def fill_path(path_iterable):
     """
-    Configures the logger to format log messages with specific styles and colors based on their severity level.
+    Replace special strings in a path by the corresponding actual path.
+
+    The strings that are replaced are:
+    - "<COCO_FOR_YOLO_FOLDER>" by COCO_FOR_YOLO_FOLDER
+    - "<DETECTRON2_FOLDER>" by DETECTRON_FOLDER
+    - "<MODEL_FOLDER>" by MODEL_FOLDER
+    - "<YOLO_DATASET>" by YOLO_DATASET
+    Constants are from constants.py.
 
     Args:
-        logger (loguru.logger): The logger instance to be formatted.
+        path_iterable (str or Iterable[str]): Path or iterable of paths.
 
     Returns:
-        loguru.logger: The configured logger instance with custom formatting.
+        str or list: The path(s) with the special strings replaced.
     """
+    if not isinstance(path_iterable, Iterable):
+        path_iterable = [path_iterable]
 
-    logger.remove()
-    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",
-            level="INFO", filter=lambda record: record["level"].no < 25)
-    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - <green>{level}</green> - {message}",
-            level="SUCCESS", filter=lambda record: record["level"].no < 30)
-    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - <yellow>{level}</yellow> - {message}",
-            level="WARNING", filter=lambda record: record["level"].no < 40)
-    logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} - <red>{level}</red> - <level>{message}</level>",
-            level="ERROR")
-    
-    return logger
+    path = []
+    for path_item in path_iterable:
+        for string_template, path_part in {"<COCO_FOR_YOLO_FOLDER>": COCO_FOR_YOLO_FOLDER, "<DETECTRON2_FOLDER>": DETECTRON_FOLDER, "<MODEL_FOLDER>": MODEL_FOLDER, "<YOLO_DATASET>": YOLO_DATASET}:
+            if string_template in path_item:
+                path_item = path_item.replace(string_template, path_part)
+        path.append(path_item)
+
+    return path if len(path) > 1 else path[0]
 
 
 def find_category(df):
@@ -100,6 +109,30 @@ def find_category(df):
         sys.exit(1)
     
     return df
+
+
+def format_logger(logger):
+    """
+    Configures the logger to format log messages with specific styles and colors based on their severity level.
+
+    Args:
+        logger (loguru.logger): The logger instance to be formatted.
+
+    Returns:
+        loguru.logger: The configured logger instance with custom formatting.
+    """
+
+    logger.remove()
+    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",
+            level="INFO", filter=lambda record: record["level"].no < 25)
+    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - <green>{level}</green> - {message}",
+            level="SUCCESS", filter=lambda record: record["level"].no < 30)
+    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} - <yellow>{level}</yellow> - {message}",
+            level="WARNING", filter=lambda record: record["level"].no < 40)
+    logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} - <red>{level}</red> - <level>{message}</level>",
+            level="ERROR")
+    
+    return logger
 
 
 def get_number_of_classes(coco_file):

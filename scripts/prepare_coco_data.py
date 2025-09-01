@@ -14,10 +14,10 @@ import pandas as pd
 from itertools import product
 from math import ceil
 
-from utils.constants import CATEGORIES, COCO_FOR_YOLO_FOLDER, IMAGE_DIR, TILE_SIZE
-from utils.misc import assemble_coco_json, format_logger, read_coco_dataset, segmentation_to_polygon
+import utils.misc as misc
+from utils.constants import CATEGORIES, IMAGE_DIR, TILE_SIZE
 
-logger = format_logger(logger)
+logger = misc.format_logger(logger)
 
 
 def borderline_intersection(coord_tuples_list):
@@ -172,7 +172,7 @@ def main(cfg_file_path):
     with open(cfg_file_path) as fp:
         cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
-    WORKING_DIR = cfg['working_directory']
+    WORKING_DIR = misc.fill_path(cfg['working_directory'])
 
     ORIGINAL_COCO_FILES_DICT = cfg['original_COCO_files']
     VALIDATED_COCO_FILES_DICT = cfg['validated_COCO_files'] if 'validated_COCO_files' in cfg.keys() else {}
@@ -207,6 +207,7 @@ def main(cfg_file_path):
     OUTPUT_DIRS = []
     OUTPUT_DIR_IMAGES = "images"
     if PREPARE_COCO:
+        TASKS['coco']['subfolder'] = misc.fill_path(TASKS['coco']['subfolder'])
         COCO_DIR = TASKS['coco']['subfolder']
         os.makedirs(COCO_DIR, exist_ok=True)
         # Subfolder for COCO images
@@ -214,8 +215,8 @@ def main(cfg_file_path):
         OUTPUT_DIRS.append(os.path.join(COCO_DIR, OUTPUT_DIR_IMAGES))
     if PREPARE_YOLO:
         # YOLO conversion requires tiles to be saved in the same folder as COCO files
-        YOLO_DIR = TASKS['yolo']['subfolder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
-        TASKS['yolo']['subfolder'] = TASKS['yolo']['subfolder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
+        TASKS['yolo']['subfolder'] = misc.fill_path(TASKS['yolo']['subfolder'])
+        YOLO_DIR = TASKS['yolo']['subfolder']
         os.makedirs(YOLO_DIR, exist_ok=True)
         OUTPUT_DIRS.append(os.path.join(YOLO_DIR))
 
@@ -225,7 +226,7 @@ def main(cfg_file_path):
     id_correspondence_df = pd.DataFrame()
     max_id = 0
     for dataset, coco_file in ORIGINAL_COCO_FILES_DICT.items():
-        images_df = read_coco_dataset(coco_file)
+        images_df = misc.read_coco_dataset(coco_file)
         images_df['original_id'] = images_df['image_id']
         # Make image IDs unique and consistent
         images_df['image_id'] = images_df['image_id'] + max_id
@@ -244,7 +245,7 @@ def main(cfg_file_path):
     if isinstance(VALIDATED_COCO_FILES_DICT, dict):
         # Case: training
         for dataset, coco_file in VALIDATED_COCO_FILES_DICT.items():
-            images_df = read_coco_dataset(coco_file)
+            images_df = misc.read_coco_dataset(coco_file)
             images_df['original_id'] = images_df['image_id']
             # Get unique IDs from the original COCO dataset
             images_df['image_id'] = images_df.drop(columns='image_id').merge(
@@ -410,7 +411,7 @@ def main(cfg_file_path):
                                 category_id=int(1),  # Currently, single class
                                 iscrowd=int(ann["iscrowd"]),
                                 bbox=[x1, y1, new_width, new_height],
-                                area=segmentation_to_polygon([coords]).area,
+                                area=misc.segmentation_to_polygon([coords]).area,
                                 segmentation=[coords]
                             ))
                             annotation_id += 1
@@ -517,7 +518,7 @@ def main(cfg_file_path):
         dataset_annotations = dataset_annotations.astype({"id": int, "category_id": int, "iscrowd": int}, copy=False)
         logger.info(f"Found {len(dataset_annotations)} annotations in the {dataset} dataset.")
 
-        coco_dict = assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
+        coco_dict = misc.assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
 
         if PREPARE_COCO:
             logger.info(f"Creating COCO file for {dataset} set.")
@@ -528,7 +529,7 @@ def main(cfg_file_path):
         if PREPARE_YOLO:
             logger.info(f"Creating COCO file for the annotation transformation to YOLO.")
             dataset_tiles_dict[dataset]["file_name"] = [os.path.basename(f) for f in dataset_tiles_dict[dataset]["file_name"]]
-            coco_dict = assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
+            coco_dict = misc.assemble_coco_json(dataset_tiles_dict[dataset], dataset_annotations, CATEGORIES)
 
             with open(os.path.join(YOLO_DIR, dataset + '.json'), 'w') as fp:
                 json.dump(coco_dict, fp, indent=4)

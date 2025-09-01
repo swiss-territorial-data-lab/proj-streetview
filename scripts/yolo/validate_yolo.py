@@ -10,8 +10,8 @@ from pandas import concat
 from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
-from utils.constants import MODEL_FOLDER, YOLO_TRAINING_PARAMS
-from utils.misc import format_logger
+from utils.constants import YOLO_TRAINING_PARAMS
+from utils.misc import fill_path, format_logger
 
 logger = format_logger(logger)
 
@@ -29,9 +29,11 @@ with open(args.config_file) as fp:
 
 WORKING_DIR = cfg['working_directory']
 
-MODEL = cfg['model'].replace("<MODEL_FOLDER>", MODEL_FOLDER)
+MODEL = cfg['model']
 PROJECT = cfg['project']
 PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
+
+WORKING_DIR, MODEL, PROJECT, PROJECT_NAME = fill_path([WORKING_DIR, MODEL, PROJECT, PROJECT_NAME])
 
 os.chdir(WORKING_DIR)
 os.makedirs(os.path.join(PROJECT, PROJECT_NAME, 'val'), exist_ok=True)

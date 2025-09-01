@@ -12,7 +12,6 @@ from geopandas import GeoDataFrame
 
 import transform_detections as trans_dets
 import utils.misc as misc
-from utils.constants import COCO_FOR_YOLO_FOLDER
 from utils.constants import CATEGORIES
 
 logger = misc.format_logger(logger)
@@ -35,13 +34,15 @@ def main(cfg_file_path):
 
     BUFFER = 1
 
+    WORKING_DIR, OUTPUT_DIR = misc.fill_path([WORKING_DIR, OUTPUT_DIR])
+
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     logger.info(f"Read datasets...")
     clipped_labels_df = pd.DataFrame()
     for dataset_key, path in CLIPPED_LABELS_FILES.items():
-        with open(path.replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)) as fp:
+        with open(misc.fill_path(path)) as fp:
             coco_data = json.load(fp)
             tiles_df = pd.DataFrame.from_records(coco_data['images']).rename(columns={'id': 'image_id'})
             dataset_labels_df = pd.DataFrame.from_records(coco_data['annotations'])

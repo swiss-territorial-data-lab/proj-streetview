@@ -12,7 +12,7 @@ from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
 from utils.constants import YOLO_TRAINING_PARAMS
-from utils.misc import format_logger
+from utils.misc import fill_path, format_logger
 
 import torch
 
@@ -40,6 +40,7 @@ YOLO_FILE = cfg['yolo_file']
 MODEL = cfg['model']
 PARAMETERS = cfg['params']
 
+WORKING_DIR, PROJECT = fill_path([WORKING_DIR, PROJECT])
 os.chdir(WORKING_DIR)
 
 print(f"Available GPUs: {torch.cuda.device_count()}")

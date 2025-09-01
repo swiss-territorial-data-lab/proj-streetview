@@ -29,8 +29,8 @@ sys.path.insert(0, parent_dir)
 
 sys.path.insert(1, 'scripts')
 from utils.detectron2 import CocoTrainer
-from utils.misc import format_logger, get_number_of_classes
-from utils.constants import DONE_MSG
+from utils.misc import fill_path, format_logger, get_number_of_classes
+from utils.constants import DETECTRON_FOLDER, DONE_MSG
 
 from loguru import logger
 logger = format_logger(logger)
@@ -62,6 +62,8 @@ def main(cfg_file_path):
     WORKING_DIR = cfg['working_directory']
     SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder']
     LOG_SUBDIR = cfg['log_subfolder']
+
+    WORKING_DIR, COCO_TRN_FILE, COCO_VAL_FILE, COCO_TST_FILE = fill_path([WORKING_DIR, COCO_TRN_FILE, COCO_VAL_FILE, COCO_TST_FILE])
     
     os.chdir(WORKING_DIR)
     written_files = []

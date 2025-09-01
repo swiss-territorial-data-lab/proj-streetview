@@ -9,7 +9,7 @@ from yaml import load, FullLoader
 import pandas as pd
 
 sys.path.insert(1, 'scripts')
-from utils.misc import format_logger
+from utils.misc import fill_path, format_logger
 
 logger = format_logger(logger)
 
@@ -33,6 +33,8 @@ with open(args.config_file) as fp:
 # Define base directory
 WORKING_DIR = cfg['working_directory']
 RAY_RESULTS_DIR = cfg['ray_results_dir']
+
+WORKING_DIR, RAY_RESULTS_DIR = fill_path([WORKING_DIR, RAY_RESULTS_DIR])
 
 os.chdir(WORKING_DIR)
 

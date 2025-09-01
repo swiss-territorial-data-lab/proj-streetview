@@ -10,7 +10,7 @@ from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
 from utils.constants import YOLO_TRAINING_PARAMS
-from utils.misc import format_logger
+from utils.misc import fill_path, format_logger
 
 import torch
 
@@ -39,6 +39,8 @@ PROJECT_NAME = cfg['name']
 BEST_PARAMETERS_PATH = cfg['best_parameters_path']
 
 RESUME_TRAINING = cfg['resume_training']
+
+WORKING_DIR, BEST_PARAMETERS_PATH, PROJECT, PROJECT_NAME = fill_path([WORKING_DIR, BEST_PARAMETERS_PATH, PROJECT, PROJECT_NAME])
 
 os.chdir(WORKING_DIR)
 # os.makedirs(OUTPUT_DIR, exist_ok=True)

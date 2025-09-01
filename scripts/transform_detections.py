@@ -13,7 +13,7 @@ from shapely.geometry import MultiPolygon, Polygon
 from statistics import median
 
 import utils.misc as misc
-from utils.constants import CATEGORIES, MODEL_FOLDER
+from utils.constants import CATEGORIES
 
 logger = misc.format_logger(logger)
 
@@ -231,7 +231,7 @@ def main(cfg_file_path):
         cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
     WORKING_DIR = cfg['working_directory']
-    OUTPUT_DIR = cfg['output_folder'].replace("<MODEL_FOLDER>", MODEL_FOLDER)
+    OUTPUT_DIR = cfg['output_folder']
     DETECTIONS_FILES = cfg['detections_files']
     PANOPTIC_COCO_FILES = cfg['panoptic_coco_files']
     ID_CORRESPONDENCE = cfg['id_correspondence']
@@ -239,13 +239,15 @@ def main(cfg_file_path):
     SCORE_THRESHOLD = cfg['score_threshold']
     BUFFER = 1
 
+    WORKING_DIR, ID_CORRESPONDENCE, OUTPUT_DIR = misc.fill_path([WORKING_DIR, ID_CORRESPONDENCE, OUTPUT_DIR])
+
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     logger.info(f"Read detections with a threshold of {SCORE_THRESHOLD} on the confidence score...")
     detections_df = pd.DataFrame()
     for dataset_key, path in DETECTIONS_FILES.items():
-        with open(path.replace("<MODEL_FOLDER>", MODEL_FOLDER)) as fp:
+        with open(misc.fill_path(path)) as fp:
             dets = pd.DataFrame.from_records(json.load(fp))
         dets['dataset'] = dataset_key
         detections_df = pd.concat([detections_df, dets], ignore_index=True)

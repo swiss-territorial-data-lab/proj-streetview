@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from utils import misc
 from utils import metrics
-from utils.constants import CATEGORIES, COCO_FOR_YOLO_FOLDER, DONE_MSG, MODEL_FOLDER, SCATTER_PLOT_MODE
+from utils.constants import CATEGORIES, DONE_MSG, SCATTER_PLOT_MODE
 
 from loguru import logger
 logger = misc.format_logger(logger)
@@ -37,15 +37,17 @@ def main(cfg_file_path):
     OUTPUT_DIR = cfg['output_folder']
     
     DATASETS = cfg['datasets']
-    PATH_DETECTIONS = DATASETS['path_detections'].replace("<MODEL_FOLDER>", MODEL_FOLDER)
+    PATH_DETECTIONS = DATASETS['path_detections']
     DETECTION_FILES = DATASETS['detections_files']
-    PATH_GROUND_TRUTH = DATASETS['path_ground_truth'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
+    PATH_GROUND_TRUTH = DATASETS['path_ground_truth']
     GT_FILES = DATASETS['ground_truth_files']
     
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
     IOU_THRESHOLD = cfg['iou_threshold'] if 'iou_threshold' in cfg.keys() else 0.25
     METHOD = cfg['metrics_method']
     DEBUG = False
+
+    WORKING_DIR, OUTPUT_DIR, PATH_DETECTIONS, PATH_GROUND_TRUTH = misc.fill_path([WORKING_DIR, OUTPUT_DIR, PATH_DETECTIONS, PATH_GROUND_TRUTH])
 
     os.chdir(WORKING_DIR)
     logger.info(f'Working directory set to {WORKING_DIR}.')

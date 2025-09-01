@@ -8,6 +8,8 @@ IMAGE_DIR = {
     'SZH': '/mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/'
 }
 
+DETECTRON_FOLDER = 'detectron2_both'
+
 COCO_FOR_YOLO_FOLDER = 'coco_for_yolo_conversion_szh'
 YOLO_DATASET = 'szh_dataset_512'
 YOLO_TRAINING_PARAMS = {

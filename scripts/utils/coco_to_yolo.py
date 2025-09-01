@@ -6,8 +6,7 @@ from yaml import load, FullLoader
 
 from ultralytics.data.converter import convert_coco
 
-from constants import COCO_FOR_YOLO_FOLDER, YOLO_DATASET
-from misc import format_logger
+from misc import fill_path, format_logger
 
 logger = format_logger(logger)
 
@@ -24,8 +23,10 @@ with open(args.config_file) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
 WORKING_DIR = cfg['working_directory']
-INPUT_DIR = cfg['input_folder'].replace("<COCO_FOR_YOLO_FOLDER>", COCO_FOR_YOLO_FOLDER)
-OUTPUT_DIR = cfg['output_folder'].replace("<YOLO_DATASET>", YOLO_DATASET)
+INPUT_DIR = cfg['input_folder']
+OUTPUT_DIR = cfg['output_folder']
+
+WORKING_DIR, INPUT_DIR, OUTPUT_DIR = fill_path([WORKING_DIR, INPUT_DIR, OUTPUT_DIR])
 
 os.chdir(WORKING_DIR)
 if os.path.exists(OUTPUT_DIR):

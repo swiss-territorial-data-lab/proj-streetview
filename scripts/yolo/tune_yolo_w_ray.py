@@ -11,7 +11,7 @@ from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
 from utils.constants import YOLO_TRAINING_PARAMS
-from utils.misc import format_logger
+from utils.misc import fill_path, format_logger
 
 logger = format_logger(logger)
 
@@ -55,7 +55,7 @@ cfg_file_path = args.config_file
 with open(cfg_file_path) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
-OUTPUT_DIR = cfg["output_folder"]
+OUTPUT_DIR = fill_path([cfg["output_folder"]])[0]
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
