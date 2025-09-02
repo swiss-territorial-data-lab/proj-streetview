@@ -26,11 +26,12 @@ prepare_coco_data.py:
         overlap_x: 74
         overlap_y: 74
         padding_y: 0
-  ratio_wo_annotations: 0
+  ratio_wo_annotations: 0.33
   seed: 42
   overwrite_images: False
   tasks:
-    make_other_dataset: True
+    test_only: False
+    make_other_dataset: False
     yolo:
       prepare_data: True
       subfolder: outputs/<COCO_FOR_YOLO_FOLDER>

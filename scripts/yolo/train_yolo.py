@@ -53,6 +53,9 @@ with open(BEST_PARAMETERS_PATH) as fp:
 model = YOLO(best_parameters['model'])
 best_parameters.pop('model')
 
+if 'batch' in best_parameters.keys():
+    YOLO_TRAINING_PARAMS.pop('batch')
+
 model.train(
     project=PROJECT,
     name=PROJECT_NAME,

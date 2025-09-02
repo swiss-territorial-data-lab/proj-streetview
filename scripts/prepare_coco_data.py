@@ -184,18 +184,20 @@ def main(cfg_file_path):
     TASKS = cfg['tasks']
     MAKE_OTHER_DATASET = TASKS['make_other_dataset']
     TASKS.pop('make_other_dataset')
+    TEST_ONLY = TASKS['test_only']
+    TASKS.pop('test_only')
     PREPARE_COCO = TASKS['coco']['prepare_data'] if 'coco' in TASKS.keys() else False
     PREPARE_YOLO = TASKS['yolo']['prepare_data'] if 'yolo' in TASKS.keys() else False
 
     DEBUG = False
 
-    for dataset in CLIPPING_PARAMS.keys():
-        params = CLIPPING_PARAMS[dataset]
+    for aoi in CLIPPING_PARAMS.keys():
+        params = CLIPPING_PARAMS[aoi]
         try:
-            logger.info(f"Including an overlap of {round(params['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {dataset} dataset.")
+            logger.info(f"Including an overlap of {round(params['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {aoi} AOI.")
         except:
             for key in params.keys():
-                logger.info(f"Including an overlap of {round(params[key]['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params[key]['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {dataset} dataset ({key}).")
+                logger.info(f"Including an overlap of {round(params[key]['overlap_x']/TILE_SIZE*100,1)} % in the X axis and {round(params[key]['overlap_y']/TILE_SIZE*100,1)} % in the Y axis for the {aoi} AOI ({key}).")
 
     if not PREPARE_COCO and not PREPARE_YOLO:
         logger.critical("At least one of PREPARE_COCO or PREPARE_YOLO must be True.")
@@ -225,16 +227,16 @@ def main(cfg_file_path):
     original_imgs_and_anns_dict = {}
     id_correspondence_df = pd.DataFrame()
     max_id = 0
-    for dataset, coco_file in ORIGINAL_COCO_FILES_DICT.items():
+    for aoi, coco_file in ORIGINAL_COCO_FILES_DICT.items():
         images_df = misc.read_coco_dataset(coco_file)
         images_df['original_id'] = images_df['image_id']
         # Make image IDs unique and consistent
         images_df['image_id'] = images_df['image_id'] + max_id
-        original_imgs_and_anns_dict[dataset] = images_df
+        original_imgs_and_anns_dict[aoi] = images_df
         max_id += len(images_df)
 
-        images_df['dataset'] = dataset
-        id_correspondence_df = pd.concat([id_correspondence_df, images_df[['dataset', 'image_id', 'original_id']]], ignore_index=True)
+        images_df["AOI"] = aoi
+        id_correspondence_df = pd.concat([id_correspondence_df, images_df[["AOI", 'image_id', 'original_id']]], ignore_index=True)
 
     filepath = "outputs/original_ids.csv"
     id_correspondence_df.to_csv(filepath, index=False)
@@ -244,16 +246,16 @@ def main(cfg_file_path):
     valid_imgs_and_anns_dict = {}
     if isinstance(VALIDATED_COCO_FILES_DICT, dict):
         # Case: training
-        for dataset, coco_file in VALIDATED_COCO_FILES_DICT.items():
+        for aoi, coco_file in VALIDATED_COCO_FILES_DICT.items():
             images_df = misc.read_coco_dataset(coco_file)
             images_df['original_id'] = images_df['image_id']
             # Get unique IDs from the original COCO dataset
             images_df['image_id'] = images_df.drop(columns='image_id').merge(
-                original_imgs_and_anns_dict[dataset],
+                original_imgs_and_anns_dict[aoi],
                 how='left', on='original_id'
             ).image_id
             assert images_df['image_id'].isna().sum() == 0, "Validated COCO dataset contains images that are not in the original COCO dataset."
-            valid_imgs_and_anns_dict[dataset] = images_df
+            valid_imgs_and_anns_dict[aoi] = images_df
     else:
         # Case: inference-only
         valid_imgs_and_anns_dict = {key: pd.DataFrame() for key in original_imgs_and_anns_dict.keys()}
@@ -270,6 +272,14 @@ def main(cfg_file_path):
         logger.info("No validated annotations found. Only inference is possible.")
         MAKE_OTHER_DATASET = True
         RATIO_WO_ANNOTATIONS = 0
+    elif TEST_ONLY:
+        logger.warning('Test-only mode activated. All annotations will be stored in the test set.')
+        for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
+            original_imgs_and_anns_df = original_imgs_and_anns_dict[key]
+
+            valid_imgs_and_anns_df["dataset"] = "tst"
+            original_imgs_and_anns_df.loc[original_imgs_and_anns_df["image_id"].isin(valid_imgs_and_anns_df["image_id"]), "dataset"] = "tst"
+            original_imgs_and_anns_df.loc[original_imgs_and_anns_df.dataset.isna(), "dataset"] = "oth"
     else:
         logger.info("Splitting images into train, val and test sets based on ratio 70% / 15% / 15%...")
         for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
@@ -302,18 +312,18 @@ def main(cfg_file_path):
     clipped_annotations_df = pd.DataFrame()
     oth_tiles_df = pd.DataFrame()
     rejected_annotations_df = pd.DataFrame(columns=['id', 'file_name', 'bbox', 'image_name'])
-    for dataset, original_imgs_and_anns_df in original_imgs_and_anns_dict.items():
-        valid_imgs_and_anns_df = valid_imgs_and_anns_dict[dataset]
-        for image in tqdm(original_imgs_and_anns_df.itertuples(), desc=f"Defining tiles and clipping annotations for the {dataset} dataset", total=len(original_imgs_and_anns_df)):
+    for aoi, original_imgs_and_anns_df in original_imgs_and_anns_dict.items():
+        valid_imgs_and_anns_df = valid_imgs_and_anns_dict[aoi]
+        for image in tqdm(original_imgs_and_anns_df.itertuples(), desc=f"Defining tiles and clipping annotations for the {aoi} AOI", total=len(original_imgs_and_anns_df)):
 
-            original_image = os.path.join(IMAGE_DIR[dataset], image.file_name)
+            original_image = os.path.join(IMAGE_DIR[aoi], image.file_name)
             if not os.path.exists(original_image):
                 logger.error(f"Image {image.file_name} not found")
                 continue
             
             tiles = []
-            params = CLIPPING_PARAMS[dataset]
-            if dataset == 'SZH':
+            params = CLIPPING_PARAMS[aoi]
+            if aoi == 'SZH':
                 if 'lb4' in image.file_name:
                     params = params['lb4']
                 else:
@@ -322,7 +332,7 @@ def main(cfg_file_path):
                 for j in range(0, params["width"] - params["overlap_x"], TILE_SIZE - params["overlap_x"]):
                     new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                     tiles.append({
-                        "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset,
+                        "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "AOI": image.AOI,
                         "original_image": original_image, "original_id": image.original_id
                     })
                     image_id += 1
@@ -483,7 +493,7 @@ def main(cfg_file_path):
     images_to_tiles_dict = gt_tiles_df.groupby('original_image')['file_name'].apply(list).to_dict()
     gt_tiles_df.drop(columns='original_image', inplace=True)
 
-    _ = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
+    achievements = Parallel(n_jobs=10, backend="loky")(delayed(image_to_tiles)(
             image, corresponding_tiles, rejected_annotations_df, tasks_dict=TASKS, overwrite=OVERWRITE_IMAGES
         ) for image, corresponding_tiles in tqdm(images_to_tiles_dict.items(), desc="Converting images to tiles")
     )

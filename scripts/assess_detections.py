@@ -45,6 +45,7 @@ def main(cfg_file_path):
     CONFIDENCE_THRESHOLD = cfg['confidence_threshold'] if 'confidence_threshold' in cfg.keys() else None
     IOU_THRESHOLD = cfg['iou_threshold'] if 'iou_threshold' in cfg.keys() else 0.25
     METHOD = cfg['metrics_method'] if 'metrics_method' in cfg.keys() else 'macro-average'
+    LIMIT_AOI = cfg['limit_aoi'] if 'limit_aoi' in cfg.keys() else False
     DEBUG = False
 
     WORKING_DIR, OUTPUT_DIR, PATH_DETECTIONS, PATH_GROUND_TRUTH = misc.fill_path([WORKING_DIR, OUTPUT_DIR, PATH_DETECTIONS, PATH_GROUND_TRUTH])
@@ -54,6 +55,8 @@ def main(cfg_file_path):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     written_files = []
+    if LIMIT_AOI:
+        logger.info(f"Limiting dataset to {LIMIT_AOI}...")
     
     # ------ Loading datasets
 
@@ -87,12 +90,16 @@ def main(cfg_file_path):
         })
         labels_df.drop(columns=['segmentation', 'iscrowd', 'supercategory', 'bbox'], inplace=True, errors='ignore')
 
-        labels_gdf_dict[dataset] = GeoDataFrame(labels_df)
-
         # Format tile info
         all_aoi_tiles_df = pd.DataFrame.from_records(coco_dict['images']).rename(columns={'id': 'image_id'})
         all_aoi_tiles_df['file_name'] = [os.path.basename(path) for path in all_aoi_tiles_df['file_name']]
+        if LIMIT_AOI:
+            all_aoi_tiles_df = all_aoi_tiles_df[all_aoi_tiles_df['dataset'] == LIMIT_AOI]
+            labels_df = pd.merge(labels_df, all_aoi_tiles_df[['image_id']], how='inner', on='image_id')
+
         tiles_df_dict[dataset] = all_aoi_tiles_df.copy()
+        labels_gdf_dict[dataset] = GeoDataFrame(labels_df)
+
 
         nbr_tiles += len(all_aoi_tiles_df)
         nbr_labels += len(labels_df)
@@ -116,7 +123,9 @@ def main(cfg_file_path):
 
         # Format detection info
         if 'image_id' not in dets_df.columns:
-            dets_df = pd.merge(dets_df, tiles_df_dict[dataset][['file_name', 'image_id']], how='left', on='file_name')
+            dets_df = pd.merge(dets_df, tiles_df_dict[dataset][['file_name', 'image_id']], how='inner', on='file_name')
+        elif LIMIT_AOI:
+            dets_df = pd.merge(dets_df, tiles_df_dict[dataset][['image_id']], how='inner', on='image_id')
         if 'det_id' not in dets_df.columns:
             dets_df.rename(columns={'id': 'det_id', 'category_id': 'det_class'}, inplace=True)
         dets_df['geometry'] = dets_df['segmentation'].apply(lambda x: misc.segmentation_to_polygon(x))
@@ -144,137 +153,139 @@ def main(cfg_file_path):
     metrics_dict_by_cl = {dataset: [] for dataset in dets_gdf_dict.keys()}
     metrics_df_dict = {}
     metrics_cl_df_dict = {}
-    thresholds = np.arange(round(dets_gdf_dict['val'].score.min()*2, 1)/2, 1., 0.05)
-   
-    # ------ Comparing detections with ground-truth data and computing metrics
 
-    # get metrics
-    datasets_list = ["val"]
-    outer_tqdm_log = tqdm(total=len(datasets_list), position=0)
+    if 'val' in dets_gdf_dict.keys():
+        thresholds = np.arange(round(dets_gdf_dict['val'].score.min()*2, 1)/2, 1., 0.05)
+    
+        # ------ Comparing detections with ground-truth data and computing metrics
 
-    for dataset in datasets_list:
+        # get metrics
+        datasets_list = ["val"]
+        outer_tqdm_log = tqdm(total=len(datasets_list), position=0)
 
-        outer_tqdm_log.set_description_str(f'Current dataset: {dataset}')
-        inner_tqdm_log = tqdm(total=len(thresholds), position=1, leave=False)
+        for dataset in datasets_list:
 
-        for threshold in thresholds:
+            outer_tqdm_log.set_description_str(f'Current dataset: {dataset}')
+            inner_tqdm_log = tqdm(total=len(thresholds), position=1, leave=False)
 
-            inner_tqdm_log.set_description_str(f'Threshold = {threshold:.2f}')
+            for threshold in thresholds:
 
-            tmp_dets_gdf = dets_gdf_dict[dataset][dets_gdf_dict[dataset].score >= threshold].copy()
+                inner_tqdm_log.set_description_str(f'Threshold = {threshold:.2f}')
 
-            tagged_df_dict = metrics.get_fractional_sets(
-                tmp_dets_gdf, 
-                labels_gdf_dict[dataset],
-                dataset,
-                IOU_THRESHOLD
-            )
-            tp_k, fp_k, fn_k, p_k, r_k, precision, recall, f1 = metrics.get_metrics(id_classes=id_classes, method=METHOD, **tagged_df_dict)
+                tmp_dets_gdf = dets_gdf_dict[dataset][dets_gdf_dict[dataset].score >= threshold].copy()
 
-            metrics_dict[dataset].append({
-                'threshold': threshold, 
-                'precision': precision, 
-                'recall': recall, 
-                'f1': f1
-            })
+                tagged_df_dict = metrics.get_fractional_sets(
+                    tmp_dets_gdf, 
+                    labels_gdf_dict[dataset],
+                    dataset,
+                    IOU_THRESHOLD
+                )
+                tp_k, fp_k, fn_k, p_k, r_k, precision, recall, f1 = metrics.get_metrics(id_classes=id_classes, method=METHOD, **tagged_df_dict)
 
-            # label classes starting at 1 and detection classes starting at 0.
-            for id_cl in id_classes:
-                metrics_dict_by_cl[dataset].append({
-                    'threshold': threshold,
-                    'class': id_cl,
-                    'precision_k': p_k[id_cl],
-                    'recall_k': r_k[id_cl],
-                    'TP_k' : tp_k[id_cl],
-                    'FP_k' : fp_k[id_cl],
-                    'FN_k' : fn_k[id_cl],
+                metrics_dict[dataset].append({
+                    'threshold': threshold, 
+                    'precision': precision, 
+                    'recall': recall, 
+                    'f1': f1
                 })
 
-            metrics_cl_df_dict[dataset] = pd.DataFrame.from_records(metrics_dict_by_cl[dataset])
+                # label classes starting at 1 and detection classes starting at 0.
+                for id_cl in id_classes:
+                    metrics_dict_by_cl[dataset].append({
+                        'threshold': threshold,
+                        'class': id_cl,
+                        'precision_k': p_k[id_cl],
+                        'recall_k': r_k[id_cl],
+                        'TP_k' : tp_k[id_cl],
+                        'FP_k' : fp_k[id_cl],
+                        'FN_k' : fn_k[id_cl],
+                    })
 
-            inner_tqdm_log.update(1)
+                metrics_cl_df_dict[dataset] = pd.DataFrame.from_records(metrics_dict_by_cl[dataset])
 
-        metrics_df_dict[dataset] = pd.DataFrame.from_records(metrics_dict[dataset])
-        outer_tqdm_log.update(1)
+                inner_tqdm_log.update(1)
 
-    inner_tqdm_log.close()
-    outer_tqdm_log.close()
+            metrics_df_dict[dataset] = pd.DataFrame.from_records(metrics_dict[dataset])
+            outer_tqdm_log.update(1)
 
-    # let's generate some plots!
+        inner_tqdm_log.close()
+        outer_tqdm_log.close()
 
-    fig = go.Figure()
-
-    for dataset in datasets_list:
-        # Plot of the precision vs recall
-
-        fig.add_trace(
-            go.Scatter(
-                x=metrics_df_dict[dataset]['recall'],
-                y=metrics_df_dict[dataset]['precision'],
-                mode=SCATTER_PLOT_MODE,
-                text=metrics_df_dict[dataset]['threshold'], 
-                name=dataset
-            )
-        )
-
-    fig.update_layout(
-        xaxis_title="Recall",
-        yaxis_title="Precision",
-        xaxis=dict(range=[0., 1]),
-        yaxis=dict(range=[0., 1])
-    )
-
-    file_to_write = os.path.join(OUTPUT_DIR, 'precision_vs_recall.html')
-    fig.write_html(file_to_write)
-    written_files.append(file_to_write)
-
-    for dataset in datasets_list:
-        # Generate a plot of TP, FN and FP for each class
+        # let's generate some plots!
 
         fig = go.Figure()
 
-        for id_cl in id_classes:
-            
-            for y in ['TP_k', 'FN_k', 'FP_k']:
-
-                fig.add_trace(
-                    go.Scatter(
-                            x=metrics_cl_df_dict[dataset]['threshold'][metrics_cl_df_dict[dataset]['class']==id_cl],
-                            y=metrics_cl_df_dict[dataset][y][metrics_cl_df_dict[dataset]['class']==id_cl],
-                            mode=SCATTER_PLOT_MODE,
-                            name=y[0:2]+'_'+str(id_cl)
-                        )
-                    )
-
-            fig.update_layout(xaxis_title="threshold", yaxis_title="#")
-            
-        if len(id_classes) > 1:
-            file_to_write = os.path.join(OUTPUT_DIR, f'{dataset}_TP-FN-FP_vs_threshold_dep_on_class.html')
-
-        else:
-            file_to_write = os.path.join(OUTPUT_DIR, f'{dataset}_TP-FN-FP_vs_threshold.html')
-
-        fig.write_html(file_to_write)
-        written_files.append(file_to_write)
-
-        fig = go.Figure()
-
-        for y in ['precision', 'recall', 'f1']:
+        for dataset in datasets_list:
+            # Plot of the precision vs recall
 
             fig.add_trace(
                 go.Scatter(
-                    x=metrics_df_dict[dataset]['threshold'],
-                    y=metrics_df_dict[dataset][y],
+                    x=metrics_df_dict[dataset]['recall'],
+                    y=metrics_df_dict[dataset]['precision'],
                     mode=SCATTER_PLOT_MODE,
-                    name=y
+                    text=metrics_df_dict[dataset]['threshold'], 
+                    name=dataset
                 )
             )
 
-        fig.update_layout(xaxis_title="threshold")
+        fig.update_layout(
+            xaxis_title="Recall",
+            yaxis_title="Precision",
+            xaxis=dict(range=[0., 1]),
+            yaxis=dict(range=[0., 1])
+        )
 
-        file_to_write = os.path.join(OUTPUT_DIR, f'{dataset}_metrics_vs_threshold.html')
+        file_to_write = os.path.join(OUTPUT_DIR, 'precision_vs_recall.html')
         fig.write_html(file_to_write)
         written_files.append(file_to_write)
+
+        for dataset in datasets_list:
+            # Generate a plot of TP, FN and FP for each class
+
+            fig = go.Figure()
+
+            for id_cl in id_classes:
+                
+                for y in ['TP_k', 'FN_k', 'FP_k']:
+
+                    fig.add_trace(
+                        go.Scatter(
+                                x=metrics_cl_df_dict[dataset]['threshold'][metrics_cl_df_dict[dataset]['class']==id_cl],
+                                y=metrics_cl_df_dict[dataset][y][metrics_cl_df_dict[dataset]['class']==id_cl],
+                                mode=SCATTER_PLOT_MODE,
+                                name=y[0:2]+'_'+str(id_cl)
+                            )
+                        )
+
+                fig.update_layout(xaxis_title="threshold", yaxis_title="#")
+                
+            if len(id_classes) > 1:
+                file_to_write = os.path.join(OUTPUT_DIR, f'{dataset}_TP-FN-FP_vs_threshold_dep_on_class.html')
+
+            else:
+                file_to_write = os.path.join(OUTPUT_DIR, f'{dataset}_TP-FN-FP_vs_threshold.html')
+
+            fig.write_html(file_to_write)
+            written_files.append(file_to_write)
+
+            fig = go.Figure()
+
+            for y in ['precision', 'recall', 'f1']:
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=metrics_df_dict[dataset]['threshold'],
+                        y=metrics_df_dict[dataset][y],
+                        mode=SCATTER_PLOT_MODE,
+                        name=y
+                    )
+                )
+
+            fig.update_layout(xaxis_title="threshold")
+
+            file_to_write = os.path.join(OUTPUT_DIR, f'{dataset}_metrics_vs_threshold.html')
+            fig.write_html(file_to_write)
+            written_files.append(file_to_write)
 
 
     # ------ tagging detections
@@ -294,9 +305,6 @@ def main(cfg_file_path):
         raise AttributeError('No confidence threshold can be determined without the validation dataset or the passed value.')
 
     tagged_dets_gdf_dict = {}
-
-    # TRUE/FALSE POSITIVES, FALSE NEGATIVES
-
     logger.info(f'Method to compute the metrics = {METHOD}')
 
     global_metrics_dict = {'dataset': [], 'precision': [], 'recall': [], 'f1': []}

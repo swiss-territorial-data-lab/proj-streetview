@@ -10,13 +10,12 @@ transform_detections.py:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
     SZH: data/SZH/valid_zh_250825.json
   id_correspondence: outputs/original_ids.csv
-  score_threshold: 0.20
+  score_threshold: 0.35
 
 
 clipped_labels_to_panoramic.py:
   working_directory: .
-  output_folder: outputs/yolo/infer
-  image_dir: /mnt/s3/proj-streetview/02_data/01_initial/01_images/NE_2020_pano
+  output_folder: outputs/yolo/infer/<MODEL_FOLDER>
   labels_files:
     trn: outputs/<COCO_FOR_YOLO_FOLDER>/trn.json
     val: outputs/<COCO_FOR_YOLO_FOLDER>/val.json
@@ -28,20 +27,21 @@ clipped_labels_to_panoramic.py:
 
 
 assess_detections.py:
-  working_directory: outputs/yolo
+  working_directory: outputs/<DETECTRON2_FOLDER>
   output_folder: panoptic_eval
-  metrics_method: micro-average
   datasets:
-    path_ground_truth: infer
+    path_ground_truth: .
     ground_truth_files:
       trn: trn_COCO_panoptic_labels.json
       val: val_COCO_panoptic_labels.json
       tst: tst_COCO_panoptic_labels.json
-    path_detections: infer/<MODEL_FOLDER>
+    path_detections: .
     detections_files:
       trn: trn_COCO_panoptic_detections.json
       val: val_COCO_panoptic_detections.json
       tst: tst_COCO_panoptic_detections.json
+  confidence_threshold: 0.45
+  # limit_aoi: SZH
 
 
 visualize_results.py:
