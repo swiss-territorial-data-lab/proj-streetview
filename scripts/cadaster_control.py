@@ -20,6 +20,7 @@ logger = format_logger(logger)
 
 def format_and_save_tagged_results(tagged_res_gdf, prefix, output_dir):
     tagged_res_gdf = gpd.GeoDataFrame(tagged_res_gdf, geometry='geometry', crs='epsg:2056')
+    tagged_res_gdf.loc[:, 'geometry'] = tagged_res_gdf['geometry'].centroid
     tagged_res_gdf.drop(columns=['det_class', 'label_class'], inplace=True)
     tagged_res_gdf.rename(columns={'label_id': 'cadaster_id'}, inplace=True)
 
@@ -47,13 +48,12 @@ parser = ArgumentParser(description="This script compares the existing pipe cada
 parser.add_argument('config_file', type=str, help='a YAML config file')
 args = parser.parse_args()
 
-cfg_file_path = os.path.join(os.path.dirname(__file__), args.config_file)
 tic = time()
 logger.info('Starting...')
 
-logger.info(f"Using {cfg_file_path} as config file.")
+logger.info(f"Using {args.config_file} as config file.")
 
-with open(cfg_file_path) as fp:
+with open(args.config_file) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
 WORKING_DIR = cfg['working_directory']
@@ -78,7 +78,7 @@ aoi_gdf = gpd.GeoDataFrame()
 for dataset_key, filepath in AOI_FILES.items():
     tmp_gdf = gpd.read_file(filepath)
     if tmp_gdf.geom_type.iloc[0] == 'Point':
-        tmp_gdf.loc[:, 'geometry'] = tmp_gdf.buffer(20)
+        tmp_gdf.loc[:, 'geometry'] = tmp_gdf.buffer(15)
     aoi_gdf = pd.concat([aoi_gdf, tmp_gdf], ignore_index=True)
 aoi_poly = aoi_gdf.union_all()
 
@@ -162,10 +162,11 @@ written_files.append(filepath)
 logger.info("Calculate density of problematic points on a grid...")
 TILE_SIZE = 100
 full_grid_gdf = gpd.GeoDataFrame()
-if aoi_poly.geom_type == 'Polygon':
-    aoi_parts = [aoi_poly]
+aoi_poly_100 = aoi_poly.buffer(150)
+if aoi_poly_100.geom_type == 'Polygon':
+    aoi_parts = [aoi_poly_100]
 else:
-    aoi_parts = aoi_poly.geoms
+    aoi_parts = aoi_poly_100.geoms
 for zone in aoi_parts:
     tile_origin = zone.bounds[0], zone.bounds[1]
     tile_size = (
@@ -184,8 +185,9 @@ problematic_points_gdf = gpd.GeoDataFrame(
 )
 
 points_on_grid_gdf = gpd.sjoin(full_grid_gdf, problematic_points_gdf, how='inner')
-point_count_df = points_on_grid_gdf.groupby(['id', 'tag']).size().reset_index(name='count')
+point_count_df = points_on_grid_gdf.groupby(['id']).size().reset_index(name='count')
 point_count_gdf = full_grid_gdf.merge(point_count_df, how='right', on=['id'])
+assert point_count_gdf['count'].sum() == problematic_points_gdf.shape[0], "Some problematic points are missing in the heat map count."
 
 logger.info('Save result...')
 filepath = os.path.join(OUTPUT_DIR, 'heatmap_grid.gpkg')
@@ -194,7 +196,7 @@ written_files.append(filepath)
 
 logger.info('Produce a KDE plot of problematic points...')
 # cf. https://towardsdatascience.com/from-kernel-density-estimation-to-spatial-analysis-in-python-64ddcdb6bc9b/
-levels = [0.2, 0.3, 0.4, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.8, 0.9,1]
+levels = [0.1, 0.2, 0.3, 0.4, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.8, 0.9, 1]
 f, ax = plt.subplots(ncols=1, figsize=(20, 8))
 # Kernel Density Estimation
 kde = sns.kdeplot(
