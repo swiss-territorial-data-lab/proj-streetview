@@ -185,14 +185,16 @@ problematic_points_gdf = gpd.GeoDataFrame(
 )
 
 points_on_grid_gdf = gpd.sjoin(full_grid_gdf, problematic_points_gdf, how='inner')
-point_count_df = points_on_grid_gdf.groupby(['id']).size().reset_index(name='count')
+point_count_df = points_on_grid_gdf.groupby(['id', 'tag']).size().reset_index(name='count')
 point_count_gdf = full_grid_gdf.merge(point_count_df, how='right', on=['id'])
 assert point_count_gdf['count'].sum() == problematic_points_gdf.shape[0], "Some problematic points are missing in the heat map count."
 
 logger.info('Save result...')
-filepath = os.path.join(OUTPUT_DIR, 'heatmap_grid.gpkg')
-point_count_gdf.to_file(filepath)
-written_files.append(filepath)
+tag_map = {'FP': 'new_detections', 'FN': 'missing_points'}
+for tag, meaning in tag_map.items():
+    filepath = os.path.join(OUTPUT_DIR, f'heatmap_grid_{meaning}.gpkg')
+    point_count_gdf[point_count_df['tag'] == tag].to_file(filepath)
+    written_files.append(filepath)
 
 logger.info('Produce a KDE plot of problematic points...')
 # cf. https://towardsdatascience.com/from-kernel-density-estimation-to-spatial-analysis-in-python-64ddcdb6bc9b/
