@@ -4,8 +4,10 @@ import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
+from tqdm import tqdm
 from yaml import FullLoader, load
 
+from joblib import Parallel, delayed
 from pandas import DataFrame
 from ultralytics import YOLO
 
@@ -60,14 +62,29 @@ for dataset, path in DATASET_IMAGES_DIR.items():
         project=PROJECT, name=PROJECT_NAME, exist_ok=True, verbose=False, stream=True
     )
 
-    coco_detections = yolo_to_coco_annotations(results, images_infos_df, start_id=last_id)
-    last_id = coco_detections[-1]['det_id']
-    logger.success(f"Done! {len(coco_detections)} annotations were produced.")
+    if isinstance(images_infos_df, DataFrame):
+        image_info_as_df = True
+        _image_info_df = images_infos_df.copy()
+        _image_info_df['file_name'] = _image_info_df['file_name'].apply(lambda x: os.path.basename(x))
+    else:
+        image_info_as_df = False
+        image_id = None
+        image_file = None
+
+    # TODO: resolve mysterious backend error to force to use "threading" or use another parallelization library
+    coco_detections = Parallel(n_jobs=50, backend="threading")(
+        delayed(yolo_to_coco_annotations)(result, images_infos_df, image_info_as_df=image_info_as_df) 
+        for result in tqdm(results, desc="Converting annotations")
+    )
+    flat_coco_detections = [item for sublist in coco_detections for item in sublist]
+    logger.success(f"Done! {len(flat_coco_detections)} annotations were produced.")
+    for i in tqdm(range(len(flat_coco_detections)), desc="Assigning IDs"):
+        flat_coco_detections[i]['det_id'] = i
 
     logger.info(f"Save annotations...")
     filepath = os.path.join(PROJECT, PROJECT_NAME, f'YOLO_{dataset}_detections.json')
     with open(filepath, 'w') as fp:
-        json.dump(coco_detections, fp)
+        json.dump(flat_coco_detections, fp)
 
     written_files.append(filepath)
 
