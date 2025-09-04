@@ -122,7 +122,8 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tas
                 achieved_coco = cv2.imwrite(tile_path, tile)
 
                 dest_path = os.path.join(tasks_dict['yolo']['subfolder'], os.path.basename(tile_name))
-                os.link(tile_path, dest_path)
+                if not os.path.exists(dest_path):
+                    os.link(tile_path, dest_path)
 
                 achievment = achieved_coco and os.path.exists(dest_path)
 
@@ -272,6 +273,8 @@ def main(cfg_file_path):
         logger.info("No validated annotations found. Only inference is possible.")
         MAKE_OTHER_DATASET = True
         RATIO_WO_ANNOTATIONS = 0
+        for original_imgs_and_anns_df in original_imgs_and_anns_dict.values():
+            original_imgs_and_anns_df['dataset'] = 'oth'
     elif TEST_ONLY:
         logger.warning('Test-only mode activated. All annotations will be stored in the test set.')
         for key, valid_imgs_and_anns_df in valid_imgs_and_anns_dict.items():
@@ -332,8 +335,8 @@ def main(cfg_file_path):
                 for j in range(0, params["width"] - params["overlap_x"], TILE_SIZE - params["overlap_x"]):
                     new_filename = os.path.join(OUTPUT_DIR_IMAGES, f"{os.path.basename(image.file_name).rstrip('.jpg')}_{j}_{i}.jpg")
                     tiles.append({
-                        "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "AOI": image.AOI,
-                        "original_image": original_image, "original_id": image.original_id
+                        "height": TILE_SIZE, "width": TILE_SIZE, "id": image_id, "file_name": new_filename, "dataset": image.dataset,
+                        "original_image": original_image, "original_id": image.original_id, "AOI": aoi
                     })
                     image_id += 1
 
@@ -524,6 +527,7 @@ def main(cfg_file_path):
     }
     if MAKE_OTHER_DATASET:
         dataset_tiles_dict["oth"] = oth_tiles_df.drop(columns="dataset").reset_index(drop=True)
+
     for dataset in dataset_tiles_dict.keys():
         # Split annotations
         dataset_annotations = clipped_annotations_df[clipped_annotations_df["image_id"].isin(dataset_tiles_dict[dataset]["id"])].copy()

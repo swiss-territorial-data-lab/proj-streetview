@@ -142,13 +142,13 @@ def read_image_info(coco_file_path_dict, id_correspondence_df):
     """
 
     images_df = pd.DataFrame()
-    for dataset_key, coco_file in coco_file_path_dict.items():
+    for aoi_key, coco_file in coco_file_path_dict.items():
         with open(coco_file) as fp:
             coco_data = json.load(fp)['images']
 
         tmp_df = pd.DataFrame(coco_data)
         tmp_df = tmp_df.merge(
-            id_correspondence_df[id_correspondence_df.dataset==dataset_key], 
+            id_correspondence_df[id_correspondence_df.AOI==aoi_key], 
             how='left', left_on='id', right_on='original_id'
         ).drop(columns=['original_id','id'])
         images_df = pd.concat((images_df, tmp_df), ignore_index=True)

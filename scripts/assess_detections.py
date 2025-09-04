@@ -94,7 +94,7 @@ def main(cfg_file_path):
         all_aoi_tiles_df = pd.DataFrame.from_records(coco_dict['images']).rename(columns={'id': 'image_id'})
         all_aoi_tiles_df['file_name'] = [os.path.basename(path) for path in all_aoi_tiles_df['file_name']]
         if LIMIT_AOI:
-            all_aoi_tiles_df = all_aoi_tiles_df[all_aoi_tiles_df['dataset'] == LIMIT_AOI]
+            all_aoi_tiles_df = all_aoi_tiles_df[all_aoi_tiles_df['AOI'] == LIMIT_AOI]
             labels_df = pd.merge(labels_df, all_aoi_tiles_df[['image_id']], how='inner', on='image_id')
 
         tiles_df_dict[dataset] = all_aoi_tiles_df.copy()
@@ -169,6 +169,7 @@ def main(cfg_file_path):
             inner_tqdm_log = tqdm(total=len(thresholds), position=1, leave=False)
 
             for threshold in thresholds:
+                threshold = round(threshold, 2)
 
                 inner_tqdm_log.set_description_str(f'Threshold = {threshold:.2f}')
 
