@@ -31,7 +31,7 @@ prepare_coco_data.py:
   overwrite_images: False
   tasks:
     test_only: False
-    make_other_dataset: False
+    make_other_dataset: True
     yolo:
       prepare_data: True
       subfolder: outputs/<COCO_FOR_YOLO_FOLDER>
@@ -82,7 +82,7 @@ validate_yolo.py:
 
 infer_with_yolo.py:
   working_directory: outputs
-  project: yolo/infer
+  project: yolo/infer/<MODEL_FOLDER>
   model: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/<MODEL_FOLDER>/weights/best.pt
   dataset_images_folder:
     trn: datasets/<YOLO_DATASET>/images/trn
@@ -92,8 +92,8 @@ infer_with_yolo.py:
   coco_info_folder: <COCO_FOR_YOLO_FOLDER>
 
 assess_detections.py:
-  working_directory: outputs/yolo
-  output_folder: eval
+  working_directory: outputs/yolo/
+  output_folder: infer/<MODEL_FOLDER>/RCNE/eval
   datasets:
     path_ground_truth: ../<COCO_FOR_YOLO_FOLDER>
     ground_truth_files:
@@ -105,3 +105,4 @@ assess_detections.py:
       trn: YOLO_trn_detections.json
       val: YOLO_val_detections.json
       tst: YOLO_tst_detections.json
+  limit_aoi: RCNE

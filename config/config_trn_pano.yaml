@@ -1,34 +1,34 @@
 transform_detections.py:
   working_directory: .
-  output_folder: outputs/yolo/infer/<MODEL_FOLDER>
+  output_folder: outputs/<DETECTRON2_FOLDER>/
   detections_files:
-    trn: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_trn_detections.json
-    val: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_val_detections.json
-    tst: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_tst_detections.json
-    oth: outputs/yolo/infer/<MODEL_FOLDER>/YOLO_oth_detections.json
+    trn: outputs/<DETECTRON2_FOLDER>/trn_detections_at_0dot05_threshold.json
+    val: outputs/<DETECTRON2_FOLDER>/val_detections_at_0dot05_threshold.json
+    tst: outputs/<DETECTRON2_FOLDER>/tst_detections_at_0dot05_threshold.json
+    oth: outputs/<DETECTRON2_FOLDER>/oth_detections_at_0dot05_threshold.json
   panoptic_coco_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250825.json
-  id_correspondence: outputs/original_ids.csv
-  score_threshold: 0.35
+    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: data/SZH/zh_COCO_13033.json
+  id_correspondence: outputs/<DETECTRON2_FOLDER>/original_ids.csv
+  score_threshold: 0.2
 
 
 clipped_labels_to_panoramic.py:
   working_directory: .
-  output_folder: outputs/yolo/infer/<MODEL_FOLDER>
+  output_folder: outputs/<DETECTRON2_FOLDER>
   labels_files:
-    trn: outputs/<COCO_FOR_YOLO_FOLDER>/trn.json
-    val: outputs/<COCO_FOR_YOLO_FOLDER>/val.json
-    tst: outputs/<COCO_FOR_YOLO_FOLDER>/tst.json
+    trn: outputs/<DETECTRON2_FOLDER>/COCO_trn.json
+    val: outputs/<DETECTRON2_FOLDER>/COCO_val.json
+    tst: outputs/<DETECTRON2_FOLDER>/COCO_tst.json
   panoptic_coco_files:
-    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250825.json
-  id_correspondence: outputs/original_ids.csv
+    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: data/SZH/zh_COCO_13033.json
+  id_correspondence: outputs/<DETECTRON2_FOLDER>/original_ids.csv
 
 
 assess_detections.py:
   working_directory: outputs/<DETECTRON2_FOLDER>
-  output_folder: panoptic_eval
+  output_folder: SZH/panoptic_eval
   datasets:
     path_ground_truth: .
     ground_truth_files:
@@ -41,7 +41,7 @@ assess_detections.py:
       val: val_COCO_panoptic_detections.json
       tst: tst_COCO_panoptic_detections.json
   confidence_threshold: 0.45
-  # limit_aoi: SZH
+  limit_aoi: SZH
 
 
 visualize_results.py:

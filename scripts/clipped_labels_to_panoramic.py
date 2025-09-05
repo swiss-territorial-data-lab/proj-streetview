@@ -34,7 +34,7 @@ def main(cfg_file_path):
 
     BUFFER = 1
 
-    WORKING_DIR, OUTPUT_DIR = misc.fill_path([WORKING_DIR, OUTPUT_DIR])
+    WORKING_DIR, OUTPUT_DIR, ID_CORRESPONDENCE = misc.fill_path([WORKING_DIR, OUTPUT_DIR, ID_CORRESPONDENCE])
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)

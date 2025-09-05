@@ -234,14 +234,15 @@ def main(cfg_file_path):
         # Make image IDs unique and consistent
         images_df['image_id'] = images_df['image_id'] + max_id
         original_imgs_and_anns_dict[aoi] = images_df
-        max_id += len(images_df)
+        max_id += images_df.image_id.max() + 1
 
         images_df["AOI"] = aoi
         id_correspondence_df = pd.concat([id_correspondence_df, images_df[["AOI", 'image_id', 'original_id']]], ignore_index=True)
 
-    filepath = "outputs/original_ids.csv"
-    id_correspondence_df.to_csv(filepath, index=False)
-    written_files.append(filepath)
+    for OUTPUT_DIR in OUTPUT_DIRS:
+        filepath = os.path.join(OUTPUT_DIR.rstrip('images'), "original_ids.csv")
+        id_correspondence_df.to_csv(filepath, index=False)
+        written_files.append(filepath)
 
     # Read validated COCO dataset
     valid_imgs_and_anns_dict = {}

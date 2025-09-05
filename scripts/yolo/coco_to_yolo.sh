@@ -1,4 +1,4 @@
-INPUT_FOLDER=coco_for_yolo_conversion_both
+INPUT_FOLDER=coco_for_yolo_both
 
 echo "Converting COCO datasets to YOLO datasets"
 python scripts/utils/coco_to_yolo.py config/config_yolo.yaml
