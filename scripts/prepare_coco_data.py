@@ -90,7 +90,10 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tas
 
     achieved = {}
     for tile_name in corresponding_tiles:
-        files_exist = all([os.path.exists(os.path.join(output_dir, tile_name)) for output_dir in output_dirs])
+        files_exist = all([
+            os.path.exists(os.path.join(output_dir, tile_name)) or os.path.exists(os.path.join(output_dir, os.path.basename(tile_name))) 
+            for output_dir in output_dirs
+        ])
         if not files_exist or overwrite:
             i = int(tile_name.split("_")[-1].rstrip(".jpg"))
             j = int(tile_name.split("_")[-2])
@@ -136,7 +139,9 @@ def image_to_tiles(image_path, corresponding_tiles, rejected_annotations_df, tas
                 achievment = cv2.imwrite(tile_path, tile)
 
             if not achievment:
+                logger.error(f'Tile {tile_path} could not be produced.')
                 achieved[tile_name] = False
+
     return achieved
 
 def write_image(image, image_name, dir_name, overwrite):
@@ -144,7 +149,7 @@ def write_image(image, image_name, dir_name, overwrite):
     if not os.path.exists(filepath) or overwrite:
         cv2.imwrite(filepath, image)
 
-def select_low_tiles(tiles_df, excluded_height_ratio=1/2):
+def select_low_tiles(tiles_df, clipping_params_dict, excluded_height_ratio=1/2):
     """
     Select tiles that are above a certain height ratio.
 
@@ -156,8 +161,16 @@ def select_low_tiles(tiles_df, excluded_height_ratio=1/2):
         DataFrame: A DataFrame containing the selected tiles.
     """
     _tiles_df = tiles_df.copy()
+    aoi = _tiles_df.loc[0, 'AOI']
+    if "height" in clipping_params_dict[aoi].keys():
+        image_height = clipping_params_dict[aoi]["height"]
+    elif 'lb4' in clipping_params_dict[aoi].keys():
+        image_height = clipping_params_dict[aoi]['lb4']["height"]
+    else:
+        image_height = clipping_params_dict[aoi]['else']["height"]
+
     _tiles_df["row_level"] = _tiles_df["file_name"].apply(lambda x: int(x.split("_")[-1].rstrip(".jpg")))
-    low_tiles_df = _tiles_df[_tiles_df["row_level"] > TILE_SIZE*excluded_height_ratio].reset_index(drop=True)
+    low_tiles_df = _tiles_df[_tiles_df["row_level"] >= image_height*excluded_height_ratio].reset_index(drop=True)
     low_tiles_df.drop(columns=["row_level"], inplace=True)
 
     return low_tiles_df
@@ -240,7 +253,7 @@ def main(cfg_file_path):
         id_correspondence_df = pd.concat([id_correspondence_df, images_df[["AOI", 'image_id', 'original_id']]], ignore_index=True)
 
     for OUTPUT_DIR in OUTPUT_DIRS:
-        filepath = os.path.join(OUTPUT_DIR.rstrip('images'), "original_ids.csv")
+        filepath = os.path.join(OUTPUT_DIR.rstrip('images') if 'images' in OUTPUT_DIR[8:] else OUTPUT_DIR, "original_ids.csv")
         id_correspondence_df.to_csv(filepath, index=False)
         written_files.append(filepath)
 
@@ -480,7 +493,7 @@ def main(cfg_file_path):
 
             if MAKE_OTHER_DATASET:
                 tiles_without_ann_df = all_tiles_df[~(condition_annotations | all_tiles_df["file_name"].isin(selected_tiles))].copy()
-                tiles_with_ann_df = select_low_tiles(tiles_without_ann_df, 2/3)
+                tiles_without_ann_df = select_low_tiles(tiles_without_ann_df, CLIPPING_PARAMS, 1/2)
                 oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df], ignore_index=True)
 
                 del tiles_without_ann_df
