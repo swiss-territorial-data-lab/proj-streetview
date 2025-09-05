@@ -1,17 +1,18 @@
 transform_detections.py:
-  working_directory: .
-  output_folder: outputs/<DETECTRON2_FOLDER>/
+  working_directory: outputs/<DETECTRON2_FOLDER>/
+  output_folder: .
   detections_files:
-    trn: outputs/<DETECTRON2_FOLDER>/trn_detections_at_0dot05_threshold.json
-    val: outputs/<DETECTRON2_FOLDER>/val_detections_at_0dot05_threshold.json
-    tst: outputs/<DETECTRON2_FOLDER>/tst_detections_at_0dot05_threshold.json
-    oth: outputs/<DETECTRON2_FOLDER>/oth_detections_at_0dot05_threshold.json
+    trn: trn_detections_at_0dot05_threshold.json
+    val: val_detections_at_0dot05_threshold.json
+    tst: tst_detections_at_0dot05_threshold.json
+    oth: oth_detections_at_0dot05_threshold.json
   panoptic_coco_files:
-    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
-    SZH: data/SZH/zh_COCO_13033.json
-  id_correspondence: outputs/<DETECTRON2_FOLDER>/original_ids.csv
-  score_threshold: 0.2
+    RCNE: ../../../../data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: ../../../../data/SZH/zh_COCO_13033.json
+  id_correspondence: ../../../<COCO_FOR_YOLO_FOLDER>/original_ids.csv
+  score_threshold: 0.4
 
+### Training-only ### ------------------------------------------------
 
 clipped_labels_to_panoramic.py:
   working_directory: .

@@ -160,7 +160,7 @@ def select_low_tiles(tiles_df, clipping_params_dict, excluded_height_ratio=1/2):
     Returns:
         DataFrame: A DataFrame containing the selected tiles.
     """
-    _tiles_df = tiles_df.copy()
+    _tiles_df = tiles_df.reset_index(drop=True)
     aoi = _tiles_df.loc[0, 'AOI']
     if "height" in clipping_params_dict[aoi].keys():
         image_height = clipping_params_dict[aoi]["height"]
@@ -471,7 +471,7 @@ def main(cfg_file_path):
                     nbr_tiles_without_ann = ceil(len(tiles_with_ann_df) * RATIO_WO_ANNOTATIONS/(1 - RATIO_WO_ANNOTATIONS))
                 
                     tiles_without_ann_df = all_tiles_df[~condition_annotations]
-                    low_tiles_df = select_low_tiles(tiles_without_ann_df, 1/2)
+                    low_tiles_df = select_low_tiles(tiles_without_ann_df, CLIPPING_PARAMS, excluded_height_ratio=1/2)
                     if len(low_tiles_df) >= nbr_tiles_without_ann:
                         added_empty_tiles_df = low_tiles_df.sample(n=nbr_tiles_without_ann, random_state=SEED)
                     else:
@@ -485,7 +485,7 @@ def main(cfg_file_path):
                     tot_tiles_without_ann += added_empty_tiles_df.shape[0]
 
                     gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df, added_empty_tiles_df), ignore_index=True)
-                    selected_tiles = tiles_without_ann_df.file_name.unique().tolist() + added_empty_tiles_df.file_name.unique().tolist()
+                    selected_tiles = tiles_with_ann_df.file_name.unique().tolist() + added_empty_tiles_df.file_name.unique().tolist()
 
                 else:
                     gt_tiles_df = pd.concat((gt_tiles_df, tiles_with_ann_df), ignore_index=True)
@@ -493,8 +493,9 @@ def main(cfg_file_path):
 
             if MAKE_OTHER_DATASET:
                 tiles_without_ann_df = all_tiles_df[~(condition_annotations | all_tiles_df["file_name"].isin(selected_tiles))].copy()
-                tiles_without_ann_df = select_low_tiles(tiles_without_ann_df, CLIPPING_PARAMS, 1/2)
-                oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df], ignore_index=True)
+                if not tiles_without_ann_df.empty:
+                    tiles_without_ann_df = select_low_tiles(tiles_without_ann_df, CLIPPING_PARAMS, excluded_height_ratio=1/2)
+                    oth_tiles_df = pd.concat([oth_tiles_df, tiles_without_ann_df], ignore_index=True)
 
                 del tiles_without_ann_df
 

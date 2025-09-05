@@ -8,10 +8,10 @@ IMAGE_DIR = {
     'SZH': '/mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/'
 }
 
-DETECTRON_FOLDER = 'detectron2_rcne'
+DETECTRON_FOLDER = 'detectron2/rcne'
 
-COCO_FOR_YOLO_FOLDER = 'coco_for_yolo_both'
-YOLO_DATASET = 'both_dataset_512'
+COCO_FOR_YOLO_FOLDER = 'coco_for_yolo/both_aoi'
+YOLO_DATASET = 'both_aoi_training'
 YOLO_TRAINING_PARAMS = {
     'data': '/mnt/data-volume-02/gsalamin/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml',
     'imgsz': TILE_SIZE,
@@ -22,4 +22,4 @@ YOLO_TRAINING_PARAMS = {
     'single_cls': True,
     'overlap_mask': False
 }
-MODEL_FOLDER = 'run02bis'    
+MODEL_FOLDER = 'run02final'    

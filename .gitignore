@@ -1,7 +1,7 @@
 data/
 datasets/
 model/
-outputs/
+outputs*/
 .vscode/
 
 # Byte-compiled / optimized / DLL files

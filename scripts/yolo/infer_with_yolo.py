@@ -72,7 +72,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
         image_file = None
 
     # TODO: resolve mysterious backend error to force to use "threading" or use another parallelization library
-    coco_detections = Parallel(n_jobs=50, backend="threading")(
+    coco_detections = Parallel(n_jobs=25, backend="threading")(
         delayed(yolo_to_coco_annotations)(result, images_infos_df, image_info_as_df=image_info_as_df) 
         for result in tqdm(results, desc="Converting annotations")
     )
