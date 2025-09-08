@@ -44,13 +44,15 @@ coco_to_yolo.py:
 redistribute_images.py:
   working_directory: outputs/<COCO_FOR_YOLO_FOLDER>
   image_folder: .
-  output_folder: ../datasets/<YOLO_DATASET>/images
+  output_folder: ../../datasets/<YOLO_DATASET>/images
   COCO_files:
     trn: trn.json
     val: val.json
     tst: tst.json
     oth: oth.json
   overwrite: False
+
+### Training-only ### ------------------------------------------------
 
 tune_yolo_model.py:
   working_directory: outputs
@@ -71,19 +73,21 @@ plot_best.py:
 train_yolo.py:
   working_directory: outputs
   project: yolo/train
-  name: run
-  best_parameters_path: ray_tune/train_yolo_2025-08-07_09-54-30/train_yolo_833b5_00037_37_epochs=75,freeze=0,lr0=0.0030,lrf=0.0100,model=yolo11m-seg,optimizer=SGD_2025-08-07_09-54-30/params.json
+  name: <MODEL_FOLDER>
+  best_parameters_path: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/tune250830/train_yolo_e6682_00007_7_epochs=75,lr0=0.0030,model=yolo11m-seg,optimizer=SGD_2025-08-30_18-12-33/params.json
   resume_training: False
 
 validate_yolo.py:
   working_directory: outputs
-  project: yolo/train
+  project: yolo/train/<MODEL_FOLDER>
   model: yolo/train/<MODEL_FOLDER>/weights/best.pt
+
+### ------------------------------------------------
 
 infer_with_yolo.py:
   working_directory: outputs
-  project: yolo/infer/<MODEL_FOLDER>
-  model: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/<MODEL_FOLDER>/weights/best.pt
+  project: yolo/infer_post_trn/<MODEL_FOLDER>
+  model: yolo/train/<MODEL_FOLDER>/weights/best.pt
   dataset_images_folder:
     trn: datasets/<YOLO_DATASET>/images/trn
     val: datasets/<YOLO_DATASET>/images/val
@@ -91,18 +95,21 @@ infer_with_yolo.py:
     oth: datasets/<YOLO_DATASET>/images/oth
   coco_info_folder: <COCO_FOR_YOLO_FOLDER>
 
+### Training-only ### ------------------------------------------------
+
 assess_detections.py:
   working_directory: outputs/yolo/
-  output_folder: infer/<MODEL_FOLDER>/RCNE/eval
+  output_folder: infer_post_trn/<MODEL_FOLDER>/eval
   datasets:
     path_ground_truth: ../<COCO_FOR_YOLO_FOLDER>
     ground_truth_files:
       trn: trn.json
       val: val.json
       tst: tst.json
-    path_detections: infer/<MODEL_FOLDER>
+    path_detections: infer_post_trn/<MODEL_FOLDER>
     detections_files:
       trn: YOLO_trn_detections.json
       val: YOLO_val_detections.json
       tst: YOLO_tst_detections.json
-  limit_aoi: RCNE
+  # confidence_threshold: 0.35
+  # limit_aoi: RCNE

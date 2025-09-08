@@ -32,7 +32,6 @@ with open(args.config_file) as fp:
     cfg = load(fp, Loader=FullLoader)[os.path.basename(__file__)]
 
 WORKING_DIR = cfg['working_directory']
-# OUTPUT_DIR = cfg['output_folder']
 
 PROJECT = cfg['project']
 PROJECT_NAME = cfg['name']
@@ -43,7 +42,6 @@ RESUME_TRAINING = cfg['resume_training']
 WORKING_DIR, BEST_PARAMETERS_PATH, PROJECT, PROJECT_NAME = fill_path([WORKING_DIR, BEST_PARAMETERS_PATH, PROJECT, PROJECT_NAME])
 
 os.chdir(WORKING_DIR)
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 print(f"Available GPUs: {torch.cuda.device_count()}")
 
@@ -55,6 +53,8 @@ best_parameters.pop('model')
 
 if 'batch' in best_parameters.keys():
     YOLO_TRAINING_PARAMS.pop('batch')
+if 'patience' in best_parameters.keys():
+    YOLO_TRAINING_PARAMS.pop('patience')
 
 model.train(
     project=PROJECT,

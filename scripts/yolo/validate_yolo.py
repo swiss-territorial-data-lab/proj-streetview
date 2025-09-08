@@ -31,23 +31,22 @@ WORKING_DIR = cfg['working_directory']
 
 MODEL = cfg['model']
 PROJECT = cfg['project']
-PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 
-WORKING_DIR, MODEL, PROJECT, PROJECT_NAME = fill_path([WORKING_DIR, MODEL, PROJECT, PROJECT_NAME])
+WORKING_DIR, MODEL, PROJECT = fill_path([WORKING_DIR, MODEL, PROJECT])
 
 os.chdir(WORKING_DIR)
-os.makedirs(os.path.join(PROJECT, PROJECT_NAME, 'val'), exist_ok=True)
-os.makedirs(os.path.join(PROJECT, PROJECT_NAME, 'tst'), exist_ok=True)
-filepath=os.path.join(PROJECT, PROJECT_NAME, 'metrics.csv')
+os.makedirs(os.path.join(PROJECT, 'val'), exist_ok=True)
+os.makedirs(os.path.join(PROJECT, 'tst'), exist_ok=True)
+filepath=os.path.join(PROJECT, 'metrics.csv')
 
 model = YOLO(MODEL)
 
 logger.info(f"Perform validation...")
-metrics = model.val(plots=True, project=PROJECT, name=PROJECT_NAME + '/val', exist_ok=True, **YOLO_TRAINING_PARAMS)
+metrics = model.val(plots=True, project=PROJECT, name='val', exist_ok=True, **YOLO_TRAINING_PARAMS)
 metrics_df = metrics.to_df()
 
 logger.info(f"Perform test...")
-metrics = model.val(split='test', plots=True, project=PROJECT, name=PROJECT_NAME + '/tst', exist_ok=True, **YOLO_TRAINING_PARAMS)
+metrics = model.val(split='test', plots=True, project=PROJECT, name='tst', exist_ok=True, **YOLO_TRAINING_PARAMS)
 metrics_df = concat([metrics_df, metrics.to_df()], ignore_index=True)
 
 logger.info(f"Save metrics to {filepath}...")

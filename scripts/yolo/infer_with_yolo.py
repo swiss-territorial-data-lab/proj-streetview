@@ -39,10 +39,9 @@ PROJECT = cfg['project']
 COCO_INFO_DIR = cfg['coco_info_folder']
 
 WORKING_DIR, COCO_INFO_DIR, MODEL, PROJECT= fill_path([WORKING_DIR, COCO_INFO_DIR, MODEL, PROJECT])
-PROJECT_NAME = [path_part for path_part in MODEL.split('/') if 'run' in path_part][0]
 
 os.chdir(WORKING_DIR)
-os.makedirs(os.path.join(PROJECT, PROJECT_NAME), exist_ok=True)
+os.makedirs(PROJECT, exist_ok=True)
 written_files = []
 
 last_id = 0
@@ -59,7 +58,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
         fill_path(path),
         conf=0.05,
         imgsz=TILE_SIZE, retina_masks=True, 
-        project=PROJECT, name=PROJECT_NAME, exist_ok=True, verbose=False, stream=True
+        project=PROJECT, exist_ok=True, verbose=False, stream=True
     )
 
     if isinstance(images_infos_df, DataFrame):
@@ -82,7 +81,7 @@ for dataset, path in DATASET_IMAGES_DIR.items():
         flat_coco_detections[i]['det_id'] = i
 
     logger.info(f"Save annotations...")
-    filepath = os.path.join(PROJECT, PROJECT_NAME, f'YOLO_{dataset}_detections.json')
+    filepath = os.path.join(PROJECT, f'YOLO_{dataset}_detections.json')
     with open(filepath, 'w') as fp:
         json.dump(flat_coco_detections, fp)
 

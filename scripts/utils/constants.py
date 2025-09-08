@@ -10,7 +10,7 @@ IMAGE_DIR = {
 
 DETECTRON_FOLDER = 'detectron2/rcne'
 
-COCO_FOR_YOLO_FOLDER = 'coco_for_yolo/both_aoi'
+COCO_FOR_YOLO_FOLDER = 'coco_for_yolo/both'
 YOLO_DATASET = 'both_aoi_training'
 YOLO_TRAINING_PARAMS = {
     'data': '/mnt/data-volume-02/gsalamin/GitHub/proj-streetview/config/yolo/yolo_dataset.yaml',
