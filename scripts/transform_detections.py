@@ -243,6 +243,7 @@ def main(cfg_file_path):
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    logger.info(f'Using {WORKING_DIR} as the working directory...')
 
     logger.info(f"Read detections with a threshold of {SCORE_THRESHOLD} on the confidence score...")
     detections_df = pd.DataFrame()
@@ -260,7 +261,7 @@ def main(cfg_file_path):
     images_df = read_image_info(PANOPTIC_COCO_FILES, id_correspondence_df)
 
     transformed_detections= []
-    for tile_name in tqdm(detections_df['file_name'].unique(), desc="Tranform detections back to panoptic images"):
+    for tile_name in tqdm(detections_df['file_name'].unique(), desc="Transform detections back to panoptic images"):
         transformed_detections.extend(
             transform_annotations(tile_name, detections_df, images_df, buffer=BUFFER, id_field='det_id', category_field='det_class')
         )

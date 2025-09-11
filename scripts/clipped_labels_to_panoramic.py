@@ -38,6 +38,7 @@ def main(cfg_file_path):
 
     os.chdir(WORKING_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    logger.info(f'Using {WORKING_DIR} as the working directory...')
 
     logger.info(f"Read datasets...")
     clipped_labels_df = pd.DataFrame()

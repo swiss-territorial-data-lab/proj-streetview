@@ -44,6 +44,8 @@ os.chdir(WORKING_DIR)
 os.makedirs(PROJECT, exist_ok=True)
 written_files = []
 
+logger.info(f'Working in folder "{WORKING_DIR}" with the model "{MODEL}"...')
+
 last_id = 0
 for dataset, path in DATASET_IMAGES_DIR.items():
     logger.info(f"Working on the dataset {dataset}...")

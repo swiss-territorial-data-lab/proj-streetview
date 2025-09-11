@@ -11,7 +11,7 @@ from numpy import nan
 from pandas import DataFrame
 
 from utils.constants import IMAGE_DIR
-from utils.misc import format_logger
+from utils.misc import fill_path, format_logger
 
 logger = format_logger(logger)
 
@@ -33,6 +33,8 @@ OUTPUT_DIR = cfg['output_folder']
 TAGGED_COCO_FILES = cfg['tagged_COCO_files']
 
 IMAGE_IDS = cfg['image_ids'] if 'image_ids' in cfg.keys() else []
+
+WORKING_DIR, OUTPUT_DIR = fill_path([WORKING_DIR, OUTPUT_DIR])
 
 os.chdir(WORKING_DIR)
 if os.path.exists(OUTPUT_DIR):
@@ -96,7 +98,7 @@ for coco_image in tqdm(sample_images_df.itertuples(), desc="Tagging images"):
         continue
     images_pro_dataset[dataset] += 1
 
-    image_dir = IMAGE_DIR[coco_image.dataset]
+    image_dir = IMAGE_DIR[coco_image.AOI]
 
     output_filename = f'{dataset}_det_{coco_image.file_name.split("/")[-1]}'.replace('tif', 'png')
     input_path = os.path.join(image_dir, os.path.basename(coco_image.file_name))

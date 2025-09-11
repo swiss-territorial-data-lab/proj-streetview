@@ -1,58 +1,58 @@
 transform_detections.py:
-  working_directory: outputs/<DETECTRON2_FOLDER>/
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
   output_folder: .
   detections_files:
-    trn: trn_detections_at_0dot05_threshold.json
-    val: val_detections_at_0dot05_threshold.json
-    tst: tst_detections_at_0dot05_threshold.json
-    oth: oth_detections_at_0dot05_threshold.json
+    trn: YOLO_trn_detections.json
+    val: YOLO_val_detections.json
+    tst: YOLO_tst_detections.json
+    oth: YOLO_oth_detections.json
   panoptic_coco_files:
     RCNE: ../../../../data/RCNE/Object_Detect_GT/ne_COCO.json
-    SZH: ../../../../data/SZH/zh_COCO_13033.json
+    SZH: ../../../../data/SZH/zh_COCO.json
   id_correspondence: ../../../<COCO_FOR_YOLO_FOLDER>/original_ids.csv
-  score_threshold: 0.4
+  score_threshold: 0.45
 
 ### Training-only ### ------------------------------------------------
 
 clipped_labels_to_panoramic.py:
   working_directory: .
-  output_folder: outputs/<DETECTRON2_FOLDER>
+  output_folder: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
   labels_files:
-    trn: outputs/<DETECTRON2_FOLDER>/COCO_trn.json
-    val: outputs/<DETECTRON2_FOLDER>/COCO_val.json
-    tst: outputs/<DETECTRON2_FOLDER>/COCO_tst.json
+    trn: outputs/<COCO_FOR_YOLO_FOLDER>/trn.json
+    val: outputs/<COCO_FOR_YOLO_FOLDER>/val.json
+    tst: outputs/<COCO_FOR_YOLO_FOLDER>/tst.json
   panoptic_coco_files:
     RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
     SZH: data/SZH/zh_COCO_13033.json
-  id_correspondence: outputs/<DETECTRON2_FOLDER>/original_ids.csv
+  id_correspondence: outputs/<COCO_FOR_YOLO_FOLDER>/original_ids.csv
 
 
 assess_detections.py:
-  working_directory: outputs/<DETECTRON2_FOLDER>
-  output_folder: SZH/panoptic_eval
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>/RCNE
+  output_folder: panoptic_eval
   datasets:
     path_ground_truth: .
     ground_truth_files:
-      trn: trn_COCO_panoptic_labels.json
-      val: val_COCO_panoptic_labels.json
+      # trn: trn_COCO_panoptic_labels.json
+      # val: val_COCO_panoptic_labels.json
       tst: tst_COCO_panoptic_labels.json
     path_detections: .
     detections_files:
-      trn: trn_COCO_panoptic_detections.json
-      val: val_COCO_panoptic_detections.json
+      # trn: trn_COCO_panoptic_detections.json
+      # val: val_COCO_panoptic_detections.json
       tst: tst_COCO_panoptic_detections.json
   confidence_threshold: 0.45
-  limit_aoi: SZH
+  # limit_aoi: RCNE
 
 
 visualize_results.py:
-  working_directory: outputs/yolo
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
   output_folder: panoptic_eval/images_for_visualization
   tagged_COCO_files:
     tagged:  panoptic_eval/tagged_detections.json
-    oth: infer/run03/oth_COCO_panoptic_detections.json
+    oth: oth_COCO_panoptic_detections.json
   coco_file_for_images:
-      trn: infer/run03/trn_COCO_panoptic_detections.json
-      val: infer/run03/val_COCO_panoptic_detections.json
-      tst: infer/run03/tst_COCO_panoptic_detections.json
-      oth: infer/run03/oth_COCO_panoptic_detections.json
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
+      tst: tst_COCO_panoptic_detections.json
+      oth: oth_COCO_panoptic_detections.json
