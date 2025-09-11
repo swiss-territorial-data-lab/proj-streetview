@@ -1,0 +1,11 @@
+cadaster_control.py:
+  working_directory: C:\Users\gwena\Documents\STDL\2_En_cours\street_view\02_data\outputs
+  output_dir: cadaster_control\best_recall
+  aoi_files:
+    RCNE: ../inputs/RCNE/objets_cadastre/photos360_subset.gpkg
+  detection_files:
+    RCNE: reprojected\RCNE\triangulation_peeling_f1.gpkg
+  cadaster_manhole_files:
+    RCNE: ../inputs/RCNE/objets_cadastre/chambres.gpkg
+  iou_threshold: 0.5
+  save_separate_datasets: True
