@@ -28,7 +28,7 @@ clipped_labels_to_panoramic.py:
 
 
 assess_detections.py:
-  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>/RCNE
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
   output_folder: panoptic_eval
   datasets:
     path_ground_truth: .
