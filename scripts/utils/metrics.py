@@ -41,7 +41,7 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
 
     # TRUE POSITIVES
     left_join = pd.DataFrame()
-    if dataset in ['trn', 'all']:
+    if dataset in ['trn', 'all'] and 'image_id' in _dets_gdf.columns:
         for image in _dets_gdf.image_id.unique():
             left_join = pd.concat([
                 left_join, sjoin(
@@ -54,7 +54,10 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
         candidates_tp_gdf = left_join[left_join.label_id.notnull()].copy()
     else:
         left_join = sjoin(_dets_gdf, _labels_gdf, how='left', predicate='intersects', lsuffix='dets', rsuffix='labels')
-        candidates_tp_gdf = left_join[left_join.image_id_labels == left_join.image_id_dets]  # image_id_labels not null iff label_id not null
+        if 'image_id' in _dets_gdf.columns:
+            candidates_tp_gdf = left_join[left_join.image_id_labels == left_join.image_id_dets]  # image_id_labels not null iff label_id not null
+        else:
+            candidates_tp_gdf = left_join[left_join.label_id.notnull()].copy()
 
     # IoU computation between labels and detections
     geom1 = candidates_tp_gdf['geometry'].to_numpy().tolist()
@@ -71,7 +74,8 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
 
     # Detection, resp labels, with IOU lower than threshold value are considered as FP, resp FN, and saved as such
     actual_matches_gdf = best_matches_gdf[best_matches_gdf['IOU'] >= iou_threshold].copy()
-    actual_matches_gdf = actual_matches_gdf.sort_values(by=['IOU'], ascending=False).drop_duplicates(subset=['label_id', 'image_id_labels'])
+    control_columns = ['label_id'] + (['image_id_labels'] if 'image_id_labels' in actual_matches_gdf.columns else [])
+    actual_matches_gdf = actual_matches_gdf.sort_values(by=['IOU'], ascending=False).drop_duplicates(subset=control_columns)
     actual_matches_gdf['IOU'] = actual_matches_gdf.IOU.round(3)
 
     del best_matches_gdf, candidates_tp_gdf
@@ -81,7 +85,7 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     tp_df = actual_matches_gdf[condition].reset_index(drop=True)
     assert len(tp_df) == len(actual_matches_gdf), "Unmatched class in the mono-class case"
     tp_df['tag'] = 'TP'
-    tp_df = tp_df.drop(columns=['index_labels', 'image_id_labels', 'dataset_labels', 'area_labels', 'geometry', 'label_geom'], errors='ignore').rename(
+    tp_df = tp_df.drop(columns=['index_labels', 'image_id_labels', 'dataset_labels', 'area_labels', 'label_geom'], errors='ignore').rename(
         columns={'image_id_dets': 'image_id', 'dataset_dets': 'dataset', 'area_dets': 'area'}
     )
     tagged_df_dict['tp_df'] = pd.concat([tagged_df_dict['tp_df'], tp_df], ignore_index=True)
@@ -94,7 +98,6 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     # FALSE POSITIVES
     fp_df = _dets_gdf[~_dets_gdf.det_id.isin(matched_det_ids)].copy()
     assert all(~fp_df.duplicated()), "Some detections were duplicated."
-    fp_df.drop(columns='geometry', inplace=True)
     fp_df['tag'] = 'FP'
     tagged_df_dict['fp_df'] = pd.concat([tagged_df_dict['fp_df'], fp_df], ignore_index=True)
 
@@ -103,7 +106,7 @@ def get_fractional_sets(dets_df, labels_df, dataset, iou_threshold=0.25):
     # FALSE NEGATIVES
     fn_df = _labels_gdf[~_labels_gdf.label_id.isin(matched_label_ids)].copy()
     assert all(~fn_df.duplicated()), "Some labels were duplicated."
-    fn_df.drop(columns=['geometry', 'label_geom'], inplace=True)
+    fn_df.drop(columns=['label_geom'], inplace=True)
     fn_df['tag'] = 'FN'
     fn_df['dataset'] = dataset
     tagged_df_dict['fn_df'] = pd.concat([tagged_df_dict['fn_df'], fn_df], ignore_index=True)

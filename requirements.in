@@ -3,6 +3,8 @@ geopandas
 loguru
 opencv-python
 plotly
+PyYAML
+scikit-learn
 
 # detectron2
 numpy <=1.23.5
