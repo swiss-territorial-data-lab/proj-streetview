@@ -61,7 +61,12 @@ def main(cfg_file_path):
     
     WORKING_DIR = cfg['working_directory']
     OUTPUT_DIR = cfg['output_folder'] if 'output_folder' in cfg.keys() else '.'
-    SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder'] if 'sample_tagged_img_subfolder' in cfg.keys() else False
+    if 'sample_tagged_img_subfolder' in cfg.keys():
+        SAMPLE_TAGGED_IMG_SUBDIR = cfg['sample_tagged_img_subfolder']
+        if OUTPUT_DIR != '.' and OUTPUT_DIR not in SAMPLE_TAGGED_IMG_SUBDIR:
+            SAMPLE_TAGGED_IMG_SUBDIR = os.path.join(OUTPUT_DIR, SAMPLE_TAGGED_IMG_SUBDIR)
+    else:
+        SAMPLE_TAGGED_IMG_SUBDIR = False
 
     SCORE_LOWER_THR = cfg['score_lower_threshold']
 

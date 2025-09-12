@@ -2,8 +2,8 @@
 geopandas
 loguru
 opencv-python
+networkx
 plotly
-PyYAML
 scikit-learn
 
 # detectron2
