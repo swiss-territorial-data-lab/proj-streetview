@@ -31,8 +31,8 @@ Please note that detectron2 can only be run on Linux-based systems or macOS.
 
 ### Installation
 
-The process with detectron2 was run on python 3.8 and the libraries can be installed from `requirements.txt`.<br>
-The process with YOLOv11 was run on python 3.10 and the libraries can be installed from `req_yolo.txt`.
+The process with YOLOv11 was run on python 3.10 and the libraries can be installed from `req_yolo.txt`.<br>
+The process with detectron2 was run on python 3.8 and the libraries can be installed from `requirements.txt`.
 
 **With docker**
 
@@ -40,11 +40,9 @@ TBD
 
 **Without docker**
 
-To use detectron2, python 3.8 is required. To use YOLOv11, python 3.10 is expected.
+To use YOLOv11, python 3.10 is expected. To use detectron2, python 3.8 is required.
 
-All libraries can be installed with `pip install -r requirements.txt` for detectron2 2 and `pip install -r req_yolo.txt` for YOLO.
-
-<mark>Harmonize the installation</mark>
+All libraries can be installed with `pip install -r req_yolo.txt` for YOLO and `pip install -r config/detectron2/req_det2.txt` for detectron2.
 
 ## Data
 
@@ -88,8 +86,8 @@ In case data are produced for both coco and yolo, hard links are created to limi
 The following command lines are used:
 
 ```
-python scripts/get_stat_images.py config/config_<DL algo>.yaml
-python scripts/prepare_coco_data.py config/config_<DL algo>.yaml
+python scripts/deep-learning/get_stat_images.py config/config_<DL algo>.yaml
+python scripts/deep-learning/prepare_coco_data.py config/config_<DL algo>.yaml
 ```
 
 ### With detectron2
@@ -97,14 +95,14 @@ python scripts/prepare_coco_data.py config/config_<DL algo>.yaml
 The training of a model and inference with detectron2 is done with the following command lines:
 
 ```
-python scripts/detectron2/train_detectron2.py config/config_detectron2.yaml
-python scripts/detectron2/infer_with_detectron2.py config/config_detectron2.yaml
+python scripts/deep-learning/detectron2/train_detectron2.py config/detectron2/config_detectron2.yaml
+python scripts/deep-learning/detectron2/infer_with_detectron2.py config/detectron2/config_detectron2.yaml
 ```
 
 The results are assessed with the `assess_results.py` script.
 
 ```
-python scripts/assess_results.py config/config_detectron2.yaml
+python scripts/deep-learning/assess_results.py config/config_detectron2.yaml
 ```
 
 After the manual search for the hyperparameters, the best models for the various AOI tested achieved around 88% precision and 75% recall.
@@ -116,15 +114,15 @@ Before training YOLO, the COCO files must be converted to yolo format by running
 The training of a model and inference with YOLO are done with the following command lines:
 
 ```
-bash scripts/yolo/coco_to_yolo.sh
-python scripts/yolo/train_yolo.py config/config_yolo.yaml
-python scripts/yolo/infer_with_yolo.py config/config_yolo.yaml
+bash scripts/deep-learning/yolo/coco_to_yolo.sh
+python scripts/deep-learning/yolo/train_yolo.py config/config_yolo.yaml
+python scripts/deep-learning/yolo/infer_with_yolo.py config/config_yolo.yaml
 ```
 
 The results are assessed with the `assess_results.py` script.
 
 ```
-python scripts/assess_results.py config/config_yolo.yaml
+python scripts/deep-learning/assess_results.py config/config_yolo.yaml
 ```
 
 After optimization of the hyperparameters, the best models for the various AOI tested achieved around 93% precision and 92% recall.
@@ -138,14 +136,14 @@ The optimization of the hyperparameters is done with the `tune_yolo_w_ray.py` sc
 The postprocessing consists in reassembling panoramic images from tiles and filtering detections on the score. The following command line is used:
 
 ```
-python scripts/transform_detections.py config/config_trn_pano.yaml
+python scripts/deep-learning/transform_detections.py config/config_trn_pano.yaml
 ```
 
 The results can be assessed once the annotations on adjacent tiles are merged for each panoramic image.
 
 ```
-python scripts/clipped_labels_to_panoramic.py config/config_trn_pano.yaml
-python scripts/assess_results.py config/config_trn_pano.yaml
+python scripts/deep-learning/clipped_labels_to_panoramic.py config/config_trn_pano.yaml
+python scripts/deep-learning/assess_results.py config/config_trn_pano.yaml
 ```
 
 The impact of this post-processing on the metrics is negligible.

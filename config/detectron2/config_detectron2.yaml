@@ -6,10 +6,10 @@ prepare_coco_data.py:
   working_directory: .
   original_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
-    # SZH: data/SZH/zh_COCO_13033.json
+    SZH: data/SZH/zh_COCO_13033.json
   validated_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    # SZH: data/SZH/valid_zh_250825.json
+    SZH: data/SZH/valid_zh_250825.json
   clipping_params:
     RCNE:
       width: 8000
@@ -30,7 +30,7 @@ prepare_coco_data.py:
         overlap_x: 74
         overlap_y: 74
         padding_y: 0
-  ratio_wo_annotations: 0.25
+  ratio_wo_annotations: 0.33
   seed: 42
   overwrite_images: False
   tasks:
@@ -53,7 +53,7 @@ train_detectron2.py:
     trn: COCO_trn.json
     val: COCO_val.json
     tst: COCO_tst.json
-  detectron2_config_file: ../../config/detectron2_config.yaml
+  detectron2_config_file: ../../../config/detectron2/detectron2_config.yaml
   model_weights:
     # pth_file: logs/model_0054999.pth
     model_zoo_checkpoint_url: COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_1x.yaml
@@ -67,10 +67,9 @@ infer_with_detectron2.py:
     val: COCO_val.json
     tst: COCO_tst.json
     oth: COCO_oth.json
-  detectron2_config_file: ../../config/detectron2_config.yaml # path relative to the working_folder
+  detectron2_config_file: ../../../config/detectron2/detectron2_config.yaml # path relative to the working_folder
   model_weights:
-    pth_file: ../detectron2_both/logs/model_final.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
-  image_metadata_json: img_metadata.json
+    pth_file: logs/model_0092499.pth # trained model minimizing the validation loss, monitor via tensorboard (tensorboard --logdir </logs>)
   score_lower_threshold: 0.05
 
 
