@@ -9,8 +9,7 @@ pyproj
 matplotlib
 rasterio
 opencv-python
+PyQt5
 jupyter
 jupyterlab
-loguru
-networkx
-PyYAML
+whitebox
