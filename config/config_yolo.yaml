@@ -1,3 +1,15 @@
+get_images_rcne.py:
+  working_directory: data/RCNE
+  output_folder: images
+  image_infos: objets_cadastre/photos360_subset.gpkg
+  overwrite: False
+  
+
+get_stat_images.py:
+  working_directory: .
+  input_folder: /mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/
+
+
 prepare_coco_data.py:
   working_directory: .
   original_COCO_files:
@@ -36,10 +48,12 @@ prepare_coco_data.py:
       prepare_data: True
       subfolder: outputs/<COCO_FOR_YOLO_FOLDER>
 
+
 coco_to_yolo.py:
   working_directory: outputs
   input_folder: <COCO_FOR_YOLO_FOLDER>
   output_folder: datasets/<YOLO_DATASET>
+
 
 redistribute_images.py:
   working_directory: outputs/<COCO_FOR_YOLO_FOLDER>
@@ -63,12 +77,15 @@ tune_yolo_model.py:
     epochs: 100
     patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
   
+
 tune_yolo_w_ray.py:
   output_folder: /mnt/data-volume-02/gsalamin/GitHub/proj-streetview/outputs/ray_tune # relative path not supported
+
 
 plot_best.py:
   working_directory: outputs
   ray_results_dir: ray_tune
+
 
 train_yolo.py:
   working_directory: outputs
@@ -76,6 +93,7 @@ train_yolo.py:
   name: <MODEL_FOLDER>
   best_parameters_path: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/tune250830/train_yolo_e6682_00007_7_epochs=75,lr0=0.0030,model=yolo11m-seg,optimizer=SGD_2025-08-30_18-12-33/params.json
   resume_training: False
+
 
 validate_yolo.py:
   working_directory: outputs

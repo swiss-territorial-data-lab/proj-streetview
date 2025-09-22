@@ -1,4 +1,5 @@
-data/
+data/SZH/*
+data/RCNE/images
 datasets/
 model/
 outputs*/
