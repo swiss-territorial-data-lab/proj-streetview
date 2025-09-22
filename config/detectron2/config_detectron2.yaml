@@ -6,10 +6,10 @@ prepare_coco_data.py:
   working_directory: .
   original_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
-    SZH: data/SZH/zh_COCO_13033.json
+    # SZH: data/SZH/zh_COCO_13033.json
   validated_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250825.json
+    # SZH: data/SZH/valid_zh_250825.json
   clipping_params:
     RCNE:
       width: 8000

@@ -15,6 +15,7 @@ from geopandas import GeoDataFrame
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 
+sys.path.insert(1, 'scripts')
 from utils import misc
 from utils import metrics
 from utils.constants import CATEGORIES, DONE_MSG, SCATTER_PLOT_MODE

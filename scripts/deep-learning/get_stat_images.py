@@ -11,6 +11,7 @@ from yaml import load, FullLoader
 import numpy as np
 import pandas as pd
 
+sys.path.insert(1, 'scripts')
 from utils.misc import format_logger
 
 logger = format_logger(logger)

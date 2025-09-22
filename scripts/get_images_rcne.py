@@ -46,7 +46,7 @@ else:
     raise ValueError(f"Unknown file type for {IMAGE_INFOS}.")
 
 logger.info("Downloading images...")
-for image_row in tqdm(df.head(25).itertuples(), total=len(df), desc="Downloading images"):
+for image_row in tqdm(df.itertuples(), total=len(df), desc="Downloading images"):
     image_link = image_row.URL
     dest_path = os.path.join(OUTPUT_DIR, os.path.basename(image_link))
     if not os.path.exists(dest_path) or OVERWRITE:

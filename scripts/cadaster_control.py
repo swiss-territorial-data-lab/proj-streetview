@@ -8,8 +8,8 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import rasterio as rio
-import seaborn as sns
+# import rasterio as rio
+# import seaborn as sns
 from shapely.geometry import MultiPolygon, Polygon
 
 import utils.metrics as metrics
@@ -29,15 +29,17 @@ def format_and_save_tagged_results(tagged_res_gdf, prefix, output_dir):
     tagged_res_gdf.loc[:, 'tag'] = tagged_res_gdf['tag'].map(new_tag)
 
     filepath = os.path.join(output_dir, prefix + 'tagged_detections.gpkg')
-    tagged_res_gdf.to_file(filepath)
+    tagged_res_gdf.drop(columns='fid', errors='ignore').to_file(filepath)
     
     return filepath
 
 
-def read_files(files_dict, aoi_poly):
+def read_files(files_dict, aoi_poly, epsg=2056):
     obj_dict = {}
     for dataset_key, filepath in files_dict.items():
         tmp_gdf = gpd.read_file(filepath)
+        if not tmp_gdf.crs.is_projected:
+            tmp_gdf = tmp_gdf[tmp_gdf.geometry.notna()].set_crs(epsg=epsg, allow_override=True)
         obj_dict[dataset_key] = tmp_gdf[tmp_gdf.intersects(aoi_poly)]
     # We suppose geom type stable across datasets
     geom_type = [gdf for gdf in obj_dict.values()][0].geom_type.iloc[0]
@@ -95,12 +97,12 @@ for dataset_key in detections_dict.keys():
     logger.info(f"    - {manholes_dict[dataset_key].shape[0]} manholes")
 
 logger.info(f"Detections are {geom_type_dets}s and manholes are {geom_type_cadaster}s.")
-logger.info(f"Points are transformed to polygons with a buffer of 30 cm.")
+logger.info(f"Points are transformed to polygons with a buffer of 35 cm.")
 
 for geom_type, dataset_dict in [(geom_type_dets, detections_dict), (geom_type_cadaster, manholes_dict)]:
-    if geom_type == 'Point':
+    if geom_type in ['Point', 'MultiPoint']:
         for gdf in dataset_dict.values():
-            gdf.loc[:, 'geometry'] = gdf.buffer(0.3)
+            gdf.loc[:, 'geometry'] = gdf.buffer(0.35)
 
 
 # Define class
@@ -196,57 +198,57 @@ for tag, meaning in tag_map.items():
     point_count_gdf[point_count_df['tag'] == tag].to_file(filepath)
     written_files.append(filepath)
 
-logger.info('Produce a KDE plot of problematic points...')
-# cf. https://towardsdatascience.com/from-kernel-density-estimation-to-spatial-analysis-in-python-64ddcdb6bc9b/
-levels = [0.1, 0.2, 0.3, 0.4, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.8, 0.9, 1]
-f, ax = plt.subplots(ncols=1, figsize=(20, 8))
-# Kernel Density Estimation
-kde = sns.kdeplot(
-    ax=ax,
-    x=problematic_points_gdf['geometry'].x,
-    y= problematic_points_gdf['geometry'].y,
-    levels = levels,
-    shade=True,
-    cmap='Reds',
-    alpha=0.9
-)
+# logger.info('Produce a KDE plot of problematic points...')
+# # cf. https://towardsdatascience.com/from-kernel-density-estimation-to-spatial-analysis-in-python-64ddcdb6bc9b/
+# levels = [0.1, 0.2, 0.3, 0.4, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.8, 0.9, 1]
+# f, ax = plt.subplots(ncols=1, figsize=(20, 8))
+# # Kernel Density Estimation
+# kde = sns.kdeplot(
+#     ax=ax,
+#     x=problematic_points_gdf['geometry'].x,
+#     y= problematic_points_gdf['geometry'].y,
+#     levels = levels,
+#     shade=True,
+#     cmap='Reds',
+#     alpha=0.9
+# )
 
-# Transform to a vector
-level_polygons = []
-i=0
-for col in kde.collections:
-    # Loop through all polygons that have the same intensity level
-    for contour in col.get_paths(): 
-        paths = []
-        # Create a polygon for the countour
-        # First polygon is the main countour, the rest are holes
-        for ncp,cp in enumerate(contour.to_polygons()):
-            x = cp[:,0]
-            y = cp[:,1]
-            new_shape = Polygon([(i[0], i[1]) for i in zip(x,y)])
-            if ncp == 0:
-                poly = new_shape
-            else:
-                # Remove holes, if any
-                poly = poly.difference(new_shape)
+# # Transform to a vector
+# level_polygons = []
+# i=0
+# for col in kde.collections:
+#     # Loop through all polygons that have the same intensity level
+#     for contour in col.get_paths(): 
+#         paths = []
+#         # Create a polygon for the countour
+#         # First polygon is the main countour, the rest are holes
+#         for ncp,cp in enumerate(contour.to_polygons()):
+#             x = cp[:,0]
+#             y = cp[:,1]
+#             new_shape = Polygon([(i[0], i[1]) for i in zip(x,y)])
+#             if ncp == 0:
+#                 poly = new_shape
+#             else:
+#                 # Remove holes, if any
+#                 poly = poly.difference(new_shape)
 
-            # Append polygon to list
-            paths.append(new_shape)
-        paths.append(poly)
-        # Create a MultiPolygon for the contour
-        multi = MultiPolygon(paths)
-        # Append MultiPolygon and level as tuple to list
-        level_polygons.append((levels[i], multi))
-        i+=1
+#             # Append polygon to list
+#             paths.append(new_shape)
+#         paths.append(poly)
+#         # Create a MultiPolygon for the contour
+#         multi = MultiPolygon(paths)
+#         # Append MultiPolygon and level as tuple to list
+#         level_polygons.append((levels[i], multi))
+#         i+=1
 
-intensity_gdf = gpd.GeoDataFrame(
-    pd.DataFrame(level_polygons, columns =['level', 'geometry']), 
-    geometry='geometry', crs = gdf.crs
-)
-# Save to file
-filepath = os.path.join(OUTPUT_DIR, 'kde_polygons.gpkg')
-intensity_gdf.to_file(filepath, driver='GPKG')
-written_files.append(filepath)
+# intensity_gdf = gpd.GeoDataFrame(
+#     pd.DataFrame(level_polygons, columns =['level', 'geometry']), 
+#     geometry='geometry', crs = gdf.crs
+# )
+# # Save to file
+# filepath = os.path.join(OUTPUT_DIR, 'kde_polygons.gpkg')
+# intensity_gdf.to_file(filepath, driver='GPKG')
+# written_files.append(filepath)
 
 print()
 logger.info("The following files were written. Let's check them out!")

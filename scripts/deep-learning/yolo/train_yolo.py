@@ -9,7 +9,7 @@ from yaml import load, FullLoader
 from ultralytics import YOLO
 
 sys.path.insert(1, 'scripts')
-from utils.constants import YOLO_TRAINING_PARAMS
+from utils.constants import BEST_YOLO_PARAMS, YOLO_TRAINING_PARAMS
 from utils.misc import fill_path, format_logger
 
 import torch
@@ -35,7 +35,7 @@ WORKING_DIR = cfg['working_directory']
 
 PROJECT = cfg['project']
 PROJECT_NAME = cfg['name']
-BEST_PARAMETERS_PATH = cfg['best_parameters_path']
+BEST_PARAMETERS_PATH = cfg['best_parameters_path'] if 'best_parameters_path' in cfg.keys() else 'None'
 
 RESUME_TRAINING = cfg['resume_training']
 
@@ -45,8 +45,12 @@ os.chdir(WORKING_DIR)
 
 print(f"Available GPUs: {torch.cuda.device_count()}")
 
-with open(BEST_PARAMETERS_PATH) as fp:
-    best_parameters = json.load(fp)
+if os.path.exists(BEST_PARAMETERS_PATH):
+    with open(BEST_PARAMETERS_PATH) as fp:
+        best_parameters = json.load(fp)
+else:
+    logger.info("No best parameters file found.")
+    best_parameters = BEST_YOLO_PARAMS
 
 model = YOLO(best_parameters['model'])
 best_parameters.pop('model')

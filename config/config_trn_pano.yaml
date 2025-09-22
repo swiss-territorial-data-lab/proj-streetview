@@ -33,15 +33,15 @@ assess_detections.py:
   datasets:
     path_ground_truth: .
     ground_truth_files:
-      # trn: trn_COCO_panoptic_labels.json
-      # val: val_COCO_panoptic_labels.json
+      trn: trn_COCO_panoptic_labels.json
+      val: val_COCO_panoptic_labels.json
       tst: tst_COCO_panoptic_labels.json
     path_detections: .
     detections_files:
-      # trn: trn_COCO_panoptic_detections.json
-      # val: val_COCO_panoptic_detections.json
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
       tst: tst_COCO_panoptic_detections.json
-  confidence_threshold: 0.45
+  # confidence_threshold: 0.45
   # limit_aoi: RCNE
 
 

@@ -7,7 +7,6 @@ from tqdm import tqdm
 from yaml import load, FullLoader
 
 import pandas as pd
-import shapely as shp
 from geopandas import GeoDataFrame
 
 import transform_detections as trans_dets

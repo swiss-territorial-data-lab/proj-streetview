@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -12,6 +13,7 @@ from geopandas import GeoDataFrame, GeoSeries, sjoin
 from shapely.geometry import MultiPolygon, Polygon
 from statistics import median
 
+sys.path.insert(1, 'scripts')
 import utils.misc as misc
 from utils.constants import CATEGORIES
 

@@ -1,6 +1,7 @@
 import cv2
 import json
 import os
+import sys
 from argparse import ArgumentParser
 from loguru import logger
 from time import time
@@ -10,6 +11,7 @@ from yaml import load, FullLoader
 from numpy import nan
 from pandas import DataFrame
 
+sys.path.insert(1, 'scripts')
 from utils.constants import IMAGE_DIR
 from utils.misc import fill_path, format_logger
 

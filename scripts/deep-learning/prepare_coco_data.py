@@ -14,6 +14,7 @@ import pandas as pd
 from itertools import product
 from math import ceil
 
+sys.path.insert(1, 'scripts')
 import utils.misc as misc
 from utils.constants import CATEGORIES, IMAGE_DIR, TILE_SIZE
 
@@ -257,6 +258,8 @@ def main(cfg_file_path):
         id_correspondence_df.to_csv(filepath, index=False)
         written_files.append(filepath)
 
+    logger.info(f"Found {sum([len(df) for df in original_imgs_and_anns_dict.values()])} images.")
+
     # Read validated COCO dataset
     valid_imgs_and_anns_dict = {}
     if isinstance(VALIDATED_COCO_FILES_DICT, dict):
@@ -281,7 +284,8 @@ def main(cfg_file_path):
             original_imgs_and_anns_dict[key] = original_imgs_and_anns_dict[key].head(100)
             valid_imgs_and_anns_dict[key] = valid_imgs_and_anns_dict[key].head(200)
 
-    logger.info(f"Found {sum([len(df) for df in valid_imgs_and_anns_dict.values()])} images for validated annotations.")
+    nbr_tot_annotations = sum([len(ann_list) for df in valid_imgs_and_anns_dict.values() for ann_list in df.annotations])
+    logger.info(f"Found {sum([len(df) for df in valid_imgs_and_anns_dict.values()])} images corresponding to {nbr_tot_annotations} validated annotations.")
 
     if all(df.empty for df in valid_imgs_and_anns_dict.values()):
         logger.info("No validated annotations found. Only inference is possible.")

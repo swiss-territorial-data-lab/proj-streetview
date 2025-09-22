@@ -91,7 +91,7 @@ train_yolo.py:
   working_directory: outputs
   project: yolo/train
   name: <MODEL_FOLDER>
-  best_parameters_path: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/tune250830/train_yolo_e6682_00007_7_epochs=75,lr0=0.0030,model=yolo11m-seg,optimizer=SGD_2025-08-30_18-12-33/params.json
+  # best_parameters_path: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/tune250830/train_yolo_e6682_00007_7_epochs=75,lr0=0.0030,model=yolo11m-seg,optimizer=SGD_2025-08-30_18-12-33/params.json
   resume_training: False
 
 
