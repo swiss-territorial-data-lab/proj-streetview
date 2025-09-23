@@ -31,7 +31,7 @@ beautifulsoup4==4.13.5
     # via nbconvert
 bleach[css]==6.2.0
     # via nbconvert
-certifi==2025.7.14
+certifi==2025.8.3
     # via
     #   httpcore
     #   httpx
@@ -48,6 +48,7 @@ click==8.2.1
     #   click-plugins
     #   cligj
     #   rasterio
+    #   whitebox
 click-plugins==1.1.1.2
     # via rasterio
 cligj==0.7.2
@@ -56,7 +57,6 @@ colorama==0.4.6
     # via
     #   click
     #   ipython
-    #   loguru
     #   tqdm
 comm==0.2.3
     # via
@@ -122,7 +122,7 @@ jinja2==3.1.6
     #   jupyterlab
     #   jupyterlab-server
     #   nbconvert
-joblib==1.5.1
+joblib==1.5.2
     # via scikit-learn
 json5==0.12.1
     # via jupyterlab-server
@@ -187,8 +187,6 @@ lark==1.2.2
     # via rfc3987-syntax
 lazy-loader==0.4
     # via scikit-image
-loguru==0.7.3
-    # via -r requirements.in
 markupsafe==3.0.2
     # via
     #   jinja2
@@ -215,9 +213,7 @@ nbformat==5.10.4
 nest-asyncio==1.6.0
     # via ipykernel
 networkx==3.4.2
-    # via
-    #   -r requirements.in
-    #   scikit-image
+    # via scikit-image
 notebook==7.4.5
     # via jupyter
 notebook-shim==0.2.4
@@ -233,6 +229,7 @@ numpy==2.2.6
     #   matplotlib
     #   opencv-python
     #   pandas
+    #   pdal
     #   pyogrio
     #   rasterio
     #   scikit-image
@@ -257,7 +254,7 @@ packaging==25.0
     #   nbconvert
     #   pyogrio
     #   scikit-image
-pandas==2.3.1
+pandas==2.3.2
     # via
     #   -r requirements.in
     #   geopandas
@@ -265,6 +262,8 @@ pandocfilters==1.5.1
     # via nbconvert
 parso==0.8.5
     # via jedi
+pdal==3.5.3
+    # via -r requirements.in
 pillow==11.3.0
     # via
     #   imageio
@@ -289,7 +288,7 @@ pygments==2.19.2
     #   ipython
     #   jupyter-console
     #   nbconvert
-pyogrio==0.11.0
+pyogrio==0.11.1
     # via geopandas
 pyparsing==3.2.4
     # via
@@ -299,6 +298,12 @@ pyproj==3.7.1
     # via
     #   -r requirements.in
     #   geopandas
+pyqt5==5.15.11
+    # via -r requirements.in
+pyqt5-qt5==5.15.2
+    # via pyqt5
+pyqt5-sip==12.17.0
+    # via pyqt5
 python-dateutil==2.9.0.post0
     # via
     #   arrow
@@ -317,9 +322,7 @@ pywinpty==3.0.0
     #   jupyter-server-terminals
     #   terminado
 pyyaml==6.0.2
-    # via
-    #   -r requirements.in
-    #   jupyter-events
+    # via jupyter-events
 pyzmq==27.1.0
     # via
     #   ipykernel
@@ -351,7 +354,7 @@ rpds-py==0.27.1
     #   referencing
 scikit-image==0.25.2
     # via -r requirements.in
-scikit-learn==1.7.1
+scikit-learn==1.7.2
     # via -r requirements.in
 scipy==1.15.3
     # via
@@ -437,10 +440,10 @@ webencodings==0.5.1
     #   tinycss2
 websocket-client==1.8.0
     # via jupyter-server
+whitebox==2.3.6
+    # via -r requirements.in
 widgetsnbextension==4.0.14
     # via ipywidgets
-win32-setctime==1.2.0
-    # via loguru
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
