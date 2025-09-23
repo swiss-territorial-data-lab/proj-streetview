@@ -34,31 +34,42 @@ Please note that detectron2 can only be run on Linux-based systems or macOS.
 The process with YOLOv11 was run on python 3.10 and the libraries can be installed from `req_yolo.txt`.<br>
 The process with detectron2 was run on python 3.8 and the libraries can be installed from `requirements.txt`.
 
-**With docker**
-
-TBD
-
 **Without docker**
 
 To use YOLOv11, python 3.10 is expected. To use detectron2, python 3.8 is required.
 
 All libraries can be installed with `pip install -r req_yolo.txt` for YOLO and `pip install -r config/detectron2/req_det2.txt` for detectron2.
 
+**With docker**
+
+A docker image provided by ultralytics and completed for this project is available in this repo. Its use is recommanded to run the deep-learning process with YOLOv11. Ensure you have the nvidia-container-toolkit installed first.
+
 ## Data
 
-The following input data are expected:
+The following input data are expected for the deep-learning part:
 
 * Panoramic images: streetview images with a constant size;
 * Ground truth (GT): COCO file with the manhole annotations corresponding to the panoramic images;
 * Validated annotations: COCO file with only the manhole annotations that were validated by visual control.
 
-<mark>Make example?</mark>
+Additionally, the following data are expected for the part about cadaster control:
+
+* Area of interest: georeferenced vector file with either the AOI as polygons or the position of the camera at each image;
+* Manholes: georeferenced vector file with the manholes from the pipe cadaster as points or as polygons.
+
+Example data can be found in the `data/RCNE` folder to test the workflow. The images need to be downloaded with the `get_images_rcne.py` script.
+
+```
+python scripts/utils/get_images_rcne.py config/config_yolo.yaml
+```
 
 ## Workflow
-All the workflow steps with the corresponding command lines are listed below. The user should use either detectron2 or YOLO. <br>
+All the workflow steps with the corresponding command lines are listed below. The user should use either detectron2 or YOLO for the deep-learning part.
+
+### Deep learning
 Input files and parameters are passed through config files. Recurring parameters are defined in `scripts/utils/constants.py`. Path for the detectron2, YOLO, and "COCO for yolo conversion" folder can be indicated in with `<DETECTRON2_FOLDER>`, `<YOLO_FOLDER>` and `<COCO_FOR_YOLO_FOLDER>` respectively in the config files. This string are then automatically replaced by the corresponding path in the script.
 
-### Preprocessing
+#### Preprocessing
 
 The preprocessing consists in the following steps:
 
@@ -90,7 +101,7 @@ python scripts/deep-learning/get_stat_images.py config/config_<DL algo>.yaml
 python scripts/deep-learning/prepare_coco_data.py config/config_<DL algo>.yaml
 ```
 
-### With detectron2
+#### With detectron2
 
 The training of a model and inference with detectron2 is done with the following command lines:
 
@@ -107,15 +118,16 @@ python scripts/deep-learning/assess_results.py config/config_detectron2.yaml
 
 After the manual search for the hyperparameters, the best models for the various AOI tested achieved around 88% precision and 75% recall.
 
-### With YOLO
+#### With YOLO
 
-Before training YOLO, the COCO files must be converted to yolo format by running `coco_to_yolo.sh`. No configuration is passed explicitly, but it use the parameters in `config/config_yolo.yaml` for the scripts `coco_to_yolo.py` and `redistribute_images.py`.
+Before training YOLO, the COCO files must be converted to yolo format by running `coco_to_yolo.sh`. No configuration is passed explicitly, but it use the parameters in `config/config_yolo.yaml` for the scripts `coco_to_yolo.py` and `redistribute_images.py`. A path is given directly in the bash script to remove the images once used.
 
 The training of a model and inference with YOLO are done with the following command lines:
 
 ```
 bash scripts/deep-learning/yolo/coco_to_yolo.sh
 python scripts/deep-learning/yolo/train_yolo.py config/config_yolo.yaml
+python scripts/deep-learning/yolo/validate_yolo.py config/config_yolo.yaml
 python scripts/deep-learning/yolo/infer_with_yolo.py config/config_yolo.yaml
 ```
 
@@ -131,7 +143,7 @@ After optimization of the hyperparameters, the best models for the various AOI t
 
 The optimization of the hyperparameters is done with the `tune_yolo_w_ray.py` script. The tuning of a model with the `tune` method of YOLOv11 was also tested in the script `tune_yolo_model.py`.
 
-### Postprocessing
+#### Postprocessing
 
 The postprocessing consists in reassembling panoramic images from tiles and filtering detections on the score. The following command line is used:
 
@@ -165,3 +177,27 @@ python scripts/cadaster_control.py config/config_cadaster.yaml
 
 
 ### Project structure
+
+The project is structured as follows:
+
+```
+.
+├── README.md
+├── LICENSE
+├── Dockerfile
+├── docker-compose.yml
+├── req_yolo.in
+├── req_yolo.txt
+├── config
+│   ├── detectron2      # Configuration files and required libraries for detectron2
+│   ├── *.yaml          # Configuration files for YOLO
+├── data/RCNE           # Example data to test the workflow
+└── scripts
+    ├── deep-learning
+    │   ├── detectron2  # Scripts to train and infer with detectron2
+    │   ├── yolo        # Scripts to train and infer with YOLO
+    │   ├── *.py        # Scripts for preprocessing, postprocessing, and assessment of the data in the deep-learning workflow
+    ├── utils           # Utility scripts
+    ├── cadaster_control.py # Script to compare the results with the pipe cadaster
+    └── get_images_rcne.py  # Script to download the example images
+```

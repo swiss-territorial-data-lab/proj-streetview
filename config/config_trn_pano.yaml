@@ -10,7 +10,7 @@ transform_detections.py:
     RCNE: ../../../../data/RCNE/Object_Detect_GT/ne_COCO.json
     SZH: ../../../../data/SZH/zh_COCO.json
   id_correspondence: ../../../<COCO_FOR_YOLO_FOLDER>/original_ids.csv
-  score_threshold: 0.45
+  score_threshold: 0.20
 
 ### Training-only ### ------------------------------------------------
 
