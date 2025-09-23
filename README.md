@@ -163,18 +163,16 @@ python scripts/assess_results.py config/config_trn_pano.yaml
 
 The impact of this post-processing on the metrics is negligible.
 
-### Geo-localization
+### Geo-localization   
 
-1. Run inference on Area of Interest (AoI). Save detections in COCO-format.    
+1. Inspect camera model and image type. Calibrate the camera trajectory if necessary. For constant offsets of camera postion or orientation, you can fix them when defining projection function. 
 
-2. Inspect camera model and image type. Calibrate the camera trajectory if necessary. For constant offsets of camera postion or orientation, you can fix them when defining projection function. 
-
-3. Run the main workflows:
+2. Run the main workflows:
    - [`geo_localization_cubemap_pano.ipynb`](./scripts/geo_localization/geo_localization_cubemap_pano.ipynb) for cubemap-based panoramas.
    - [`geo_localization_spherical_pano.ipynb`](./scripts/geo_localization/geo_localization_spherical_pano.ipynb) for spherical/equirectangular panoramas.
    - Detailed instruction on input, output and parameters to finetune can be found in notebook markdown cell.
 
-4. Final geo-localized detections are saved in geopackage file. Qualitative evaluation can be conducted with ortho-intensity if no ground truth available.  
+3. Final geo-localized detections are saved in geopackage file. Qualitative evaluation can be conducted with ortho-intensity if no ground truth available.  
 
 ### Comparison with the pipe cadaster
 

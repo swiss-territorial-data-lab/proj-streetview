@@ -238,6 +238,10 @@ def spatial_temporal_group_sort(
 
     prev_anchor_idx = None
 
+    # sort groups by position (Stage 2)
+    # Use temporal sorted camera as anchor 
+    # extract all camera near the anchor in a given radius and sort spatially 
+    # according to temporal trajectory (from previous anchor to current one)
     for current_anchor_idx in range(len(group_meta)):
         if used[current_anchor_idx]:
             continue
@@ -511,9 +515,9 @@ def cubemap_pano_proj_ray(
 
 def triangulation_peeling(
     grouped,
-    pano_proj_ray,                        # function receive (frame_id, frame), create ray using defined projection
+    pano_proj_ray,                       
     intersection_threshold=0.2,  
-    clustering_threshold=0.5,  # meters, for intersection and clustering
+    clustering_threshold=0.5,             # meters, for intersection and clustering
     candidate_update_threshold=1.0,       # meters, for candidate consistency
     candidate_missing_limit=5,            # number of consecutive frames without new rays before removal
     radius=20.0,
@@ -526,6 +530,7 @@ def triangulation_peeling(
 
     Args:
         grouped: iterable of (image_id, df_frame) pairs, grouped and sorted.
+        pano_proj_ray: function receive (frame_id, frame, meta_cols, offset), create 3d ray using defined projection
         intersection_threshold: float, distance threshold for valid ray intersection.
         clustering_threshold: float, DBSCAN eps for intersection/candidate clustering.
         candidate_update_threshold: float, max distance to update candidate.
