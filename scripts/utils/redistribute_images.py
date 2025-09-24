@@ -2,6 +2,7 @@ import json
 import os  
 from argparse import ArgumentParser
 from loguru import logger
+from shutil import copy
 from time import time
 from tqdm import tqdm
 from yaml import load, FullLoader
@@ -49,7 +50,10 @@ for dataset, coco_file in COCO_FILES_DICT.items():
             if not OVERWRITE:
                 continue
             os.remove(dest_path)
-        os.link(image_path, dest_path)
+        try:
+            os.link(image_path, dest_path)
+        except OSError:
+            copy(image_path, dest_path)
 
 logger.success(f"Done! {len(COCO_FILES_DICT)} datasets were created in {os.path.join(WORKING_DIR, OUTPUT_DIR)}.")
 logger.info(f"Done in {round(time() - tic, 2)} seconds.")

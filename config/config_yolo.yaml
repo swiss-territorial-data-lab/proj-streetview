@@ -14,10 +14,10 @@ prepare_coco_data.py:
   working_directory: .
   original_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
-    SZH: data/SZH/zh_COCO_13033.json
+    # SZH: data/SZH/zh_COCO_13033.json
   validated_COCO_files:
     RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
-    SZH: data/SZH/valid_zh_250731.json
+    # SZH: data/SZH/valid_zh_250731.json
   clipping_params:
     RCNE:
       width: 8000
@@ -52,13 +52,13 @@ prepare_coco_data.py:
 coco_to_yolo.py:
   working_directory: outputs
   input_folder: <COCO_FOR_YOLO_FOLDER>
-  output_folder: datasets/<YOLO_DATASET>
+  output_folder: /datasets/<YOLO_DATASET>
 
 
 redistribute_images.py:
   working_directory: outputs/<COCO_FOR_YOLO_FOLDER>
   image_folder: .
-  output_folder: ../../datasets/<YOLO_DATASET>/images
+  output_folder: /datasets/<YOLO_DATASET>/images
   COCO_files:
     trn: trn.json
     val: val.json
@@ -107,10 +107,10 @@ infer_with_yolo.py:
   project: yolo/infer_post_trn/<MODEL_FOLDER>
   model: yolo/train/<MODEL_FOLDER>/weights/best.pt
   dataset_images_folder:
-    trn: datasets/<YOLO_DATASET>/images/trn
-    val: datasets/<YOLO_DATASET>/images/val
-    tst: datasets/<YOLO_DATASET>/images/tst
-    oth: datasets/<YOLO_DATASET>/images/oth
+    trn: /datasets/<YOLO_DATASET>/images/trn
+    val: /datasets/<YOLO_DATASET>/images/val
+    tst: /datasets/<YOLO_DATASET>/images/tst
+    oth: /datasets/<YOLO_DATASET>/images/oth
   coco_info_folder: <COCO_FOR_YOLO_FOLDER>
 
 ### Training-only ### ------------------------------------------------

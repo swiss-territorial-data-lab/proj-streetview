@@ -8,5 +8,3 @@ RUN pip install geopandas==1.0.1, loguru==0.7.3, plotly==6.2.0, scikit-learn==1.
 RUN pip install ray[tune]==2.47.1, tensorboard==2.19.0 --no-cache-dir
 
 COPY scripts/ scripts/
-
-USER 65534:65534

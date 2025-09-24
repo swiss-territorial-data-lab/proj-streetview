@@ -1,4 +1,4 @@
-# Detection of manholes on streetview images
+# Detection of manholes on street view images
 
 <!--Currently do not include the reporjection of the ground truth. To be added later.-->
 
@@ -34,6 +34,9 @@ Please note that detectron2 can only be run on Linux-based systems or macOS.
 The process with YOLOv11 was run on python 3.10 and the libraries can be installed from `req_yolo.txt`.<br>
 The process with detectron2 was run on python 3.8 and the libraries can be installed from `requirements.txt`.
 
+> [!NOTE]  
+> The results presented in the official documentation were obtained with a batch size of 25 images for the YOLO training. A batch size of 10 images is set in the default parameters of this repo, because the use of docker 
+
 **Without docker**
 
 To use YOLOv11, python 3.10 is expected. To use detectron2, python 3.8 is required.
@@ -42,13 +45,13 @@ All libraries can be installed with `pip install -r req_yolo.txt` for YOLO and `
 
 **With docker**
 
-A docker image provided by ultralytics and completed for this project is available in this repo. Its use is recommanded to run the deep-learning process with YOLOv11. Ensure you have the nvidia-container-toolkit installed first.
+A docker image provided by ultralytics and completed for this project is available in this repo. Ensure you have the nvidia-container-toolkit installed first.
 
 ## Data
 
 The following input data are expected for the deep-learning part:
 
-* Panoramic images: streetview images with a constant size;
+* Panoramic images: street view images with a constant size;
 * Ground truth (GT): COCO file with the manhole annotations corresponding to the panoramic images;
 * Validated annotations: COCO file with only the manhole annotations that were validated by visual control.
 
@@ -121,6 +124,15 @@ After the manual search for the hyperparameters, the best models for the various
 #### With YOLO
 
 Before training YOLO, the COCO files must be converted to yolo format by running `coco_to_yolo.sh`. No configuration is passed explicitly, but it use the parameters in `config/config_yolo.yaml` for the scripts `coco_to_yolo.py` and `redistribute_images.py`. A path is given directly in the bash script to remove the images once used.
+
+> [!WARNING]  
+> An exception might be raised because of the hard-coded path for YOLO datasets. In that case, please follow the instructions of the execption message.  
+> The risk is that the path to the datasets is not mounted in the docker container. If so, `coco_to_yolo.sh` will have to be run every time the container is started.
+
+Before training, it is possible to optimize the hyperparameters with the `tune_yolo_model.py` script or the `tune_yolo_w_ray.py` script.
+
+* `tune_yolo_model.py`: use the built-in method of YOLO. Only allow to optimize the float hyperparameters.
+* `tune_yolo_w_ray.py`: use the `ray` library to optimize the hyperparameters. Allow to optimize any hyperparameter.
 
 The training of a model and inference with YOLO are done with the following command lines:
 

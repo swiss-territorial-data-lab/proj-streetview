@@ -1,5 +1,5 @@
 # Dataset root directory relative to the yolov5 directory
-path: both_new_training
+path: example
 
 # Train/val/test sets: specify directories, *.txt files, or lists
 train: images/trn
