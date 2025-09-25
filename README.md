@@ -1,7 +1,5 @@
 # Detection of manholes on street view images
 
-<!--Currently do not include the reporjection of the ground truth. To be added later.-->
-
 The scripts in this repo allow detecting manholes on street view images and projecting the detections to a geographical reference system. Detection with detectron2 and YOLO is available. Detailed method and results are discussed on the [STDL tech website](https://www.tech.stdl.ch/PROJ-STREETVIEW)
 
 This project has been done in partnership with the Institut d'Ingénierie du territoire of the HEIG-VD at Yverdon-les-Bains.
@@ -9,16 +7,16 @@ This project has been done in partnership with the Institut d'Ingénierie du ter
 **Table of content**
 
 - [Setup](#setup)
-    - [Hardware](#hardware)
-    - [Software](#software)
     - [Installation](#installation)
 - [Data](#data)
 - [Workflow](#workflow)
-    - [Preprocessing](#preprocessing)
-    - [With detectron2](#with-detectron2)
-    - [With YOLO](#with-yolo)
-    - [Postprocessing](#postprocessing)
-    - [Reprojection](#reprojection)
+    - [Dataset preparation](#dataset-preparation)
+    - [Deep learning](#deep-learning)
+        - [Preprocessing](#preprocessing)
+        - [With detectron2](#with-detectron2)
+        - [With YOLO](#with-yolo)
+        - [Postprocessing](#postprocessing)
+    - [Geo-localization](#geo-localization)
     - [Comparison with the pipe cadaster](#comparison-with-the-pipe-cadaster)
 - [Additional information](#additional-information)
     - [Project structure](#project-structure)
@@ -67,9 +65,21 @@ python scripts/utils/get_images_rcne.py config/config_yolo.yaml
 ```
 
 ## Workflow
-All the workflow steps with the corresponding command lines are listed below. The user should use either detectron2 or YOLO for the deep-learning part.
+
+### Dataset Preparation
+
+This project uses ortho-intensity rasters derived from LiDAR data to semi-automatically generate annotations for deep learning. This step is optional as ground truth could be generated in another way and no ground truth is needed for inference.
+
+The employed method is the following:
+- Ground points are first extracted using the Cloth Simulation Filter (CSF) to remove above-ground objects that could occlude manholes. 
+- The remaining data is interpolated with inverse-distance weighting to create intensity and elevation rasters. 
+- Circular features are then detected using the Hough transform, and combined with elevation data to regress each candidate to a flat circle in the local 3D coordinate system. 
+- Finally, validated 3D targets are projected onto street-view images using camera metadata. 
+
+See [dataset preparation](./dataset_preparation/README.md) for detailed instructions.
 
 ### Deep learning
+All the deep-learning steps with the corresponding command lines are listed below. The user should use either detectron2 or YOLO. <br>
 Input files and parameters are passed through config files. Recurring parameters are defined in `scripts/utils/constants.py`. Path for the detectron2, YOLO, and "COCO for yolo conversion" folder can be indicated in with `<DETECTRON2_FOLDER>`, `<YOLO_FOLDER>` and `<COCO_FOR_YOLO_FOLDER>` respectively in the config files. This string are then automatically replaced by the corresponding path in the script.
 
 #### Preprocessing
@@ -172,9 +182,16 @@ python scripts/deep-learning/assess_results.py config/config_transfo_pano.yaml
 
 The impact of this post-processing on the metrics is negligible.
 
-### Reprojection
+### Geo-localization   
 
-TBD
+1. Inspect camera model and image type. Calibrate the camera trajectory if necessary. For constant offsets of camera postion or orientation, you can fix them when defining projection function. 
+
+2. Run the main workflows:
+   - [`geo_localization_cubemap_pano.ipynb`](./scripts/geo_localization/geo_localization_cubemap_pano.ipynb) for cubemap-based panoramas.
+   - [`geo_localization_spherical_pano.ipynb`](./scripts/geo_localization/geo_localization_spherical_pano.ipynb) for spherical/equirectangular panoramas.
+   - Detailed instruction on input, output and parameters to finetune can be found in notebook markdown cell.
+
+3. Final geo-localized detections are saved in geopackage file. Qualitative evaluation can be conducted with ortho-intensity if no ground truth available.  
 
 ### Comparison with the pipe cadaster
 

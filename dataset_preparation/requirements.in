@@ -1,0 +1,15 @@
+numpy
+pandas
+geopandas
+shapely
+tqdm
+scikit-learn
+scikit-image
+pyproj
+matplotlib
+rasterio
+opencv-python
+PyQt5
+jupyter
+jupyterlab
+whitebox

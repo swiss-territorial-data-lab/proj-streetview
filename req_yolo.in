@@ -1,8 +1,11 @@
 # general
 geopandas
+jupyter
+jupyterlab
 loguru
 plotly
 scikit-learn
+scikit-image
 
 # YOLO
 ray

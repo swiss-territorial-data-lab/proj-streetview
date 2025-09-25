@@ -5,12 +5,12 @@ from time import time
 from yaml import FullLoader, load
 
 import geopandas as gpd
-import matplotlib.pyplot as plt
-import numpy as np
+# import matplotlib.pyplot as plt
+# import numpy as np
 import pandas as pd
 # import rasterio as rio
 # import seaborn as sns
-from shapely.geometry import MultiPolygon, Polygon
+# from shapely.geometry import MultiPolygon, Polygon
 
 import utils.metrics as metrics
 from utils.constants import CATEGORIES
