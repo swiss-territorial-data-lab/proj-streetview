@@ -47,13 +47,18 @@ A docker image provided by ultralytics and completed for this project is availab
 
 ## Data
 
-The following input data are expected for the deep-learning part:
+The following input data are expected for the _deep-learning part_:
 
 * Panoramic images: street view images with a constant size;
-* Ground truth (GT): COCO file with the manhole annotations corresponding to the panoramic images;
+* Ground truth (GT) annotations on street view images: COCO file with the manhole annotations corresponding to the panoramic images;
 * Validated annotations: COCO file with only the manhole annotations that were validated by visual control.
 
-Additionally, the following data are expected for the part about cadaster control:
+The following input data are expected for the part about _geo-localization_:
+
+* Trajectory information: table withtime, position and orientation of the camera at each image;
+* GT vector layer: georeferenced vector file with the expected geolocalized manholes.
+
+The following data are expected for the part about _cadaster control_:
 
 * Area of interest: georeferenced vector file with either the AOI as polygons or the position of the camera at each image;
 * Manholes: georeferenced vector file with the manholes from the pipe cadaster as points or as polygons.
@@ -79,6 +84,7 @@ The employed method is the following:
 See [dataset preparation](./dataset_preparation/README.md) for detailed instructions.
 
 ### Deep learning
+
 All the deep-learning steps with the corresponding command lines are listed below. The user should use either detectron2 or YOLO. <br>
 Input files and parameters are passed through config files. Recurring parameters are defined in `scripts/utils/constants.py`. Path for the detectron2, YOLO, and "COCO for yolo conversion" folder can be indicated in with `<DETECTRON2_FOLDER>`, `<YOLO_FOLDER>` and `<COCO_FOR_YOLO_FOLDER>` respectively in the config files. This string are then automatically replaced by the corresponding path in the script.
 
