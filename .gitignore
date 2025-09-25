@@ -1,3 +1,8 @@
+data/SZH/*
+data/RCNE/images
+datasets/
+model/
+outputs*/
 .vscode/
 
 # Byte-compiled / optimized / DLL files

@@ -1,0 +1,58 @@
+transform_detections.py:
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
+  output_folder: .
+  detections_files:
+    trn: YOLO_trn_detections.json
+    val: YOLO_val_detections.json
+    tst: YOLO_tst_detections.json
+    oth: YOLO_oth_detections.json
+  panoptic_coco_files:
+    RCNE: ../../../../data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: ../../../../data/SZH/zh_COCO.json
+  id_correspondence: ../../../<COCO_FOR_YOLO_FOLDER>/original_ids.csv
+  score_threshold: 0.20
+
+### Training-only ### ------------------------------------------------
+
+clipped_labels_to_panoramic.py:
+  working_directory: .
+  output_folder: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
+  labels_files:
+    trn: outputs/<COCO_FOR_YOLO_FOLDER>/trn.json
+    val: outputs/<COCO_FOR_YOLO_FOLDER>/val.json
+    tst: outputs/<COCO_FOR_YOLO_FOLDER>/tst.json
+  panoptic_coco_files:
+    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    SZH: data/SZH/zh_COCO_13033.json
+  id_correspondence: outputs/<COCO_FOR_YOLO_FOLDER>/original_ids.csv
+
+
+assess_detections.py:
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
+  output_folder: panoptic_eval
+  datasets:
+    path_ground_truth: .
+    ground_truth_files:
+      trn: trn_COCO_panoptic_labels.json
+      val: val_COCO_panoptic_labels.json
+      tst: tst_COCO_panoptic_labels.json
+    path_detections: .
+    detections_files:
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
+      tst: tst_COCO_panoptic_detections.json
+  # confidence_threshold: 0.45
+  # limit_aoi: RCNE
+
+
+visualize_results.py:
+  working_directory: outputs/yolo/infer_post_trn/<MODEL_FOLDER>
+  output_folder: panoptic_eval/images_for_visualization
+  tagged_COCO_files:
+    tagged:  panoptic_eval/tagged_detections.json
+    oth: oth_COCO_panoptic_detections.json
+  coco_file_for_images:
+      trn: trn_COCO_panoptic_detections.json
+      val: val_COCO_panoptic_detections.json
+      tst: tst_COCO_panoptic_detections.json
+      oth: oth_COCO_panoptic_detections.json

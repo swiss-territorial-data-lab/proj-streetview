@@ -1,0 +1,15 @@
+services:
+  streetview:
+    build: .
+    volumes:
+      - ./data:/dock/data
+      - ./config:/dock/config
+      - ./outputs:/dock/outputs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: /bin/bash

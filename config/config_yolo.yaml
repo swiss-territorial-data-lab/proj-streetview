@@ -1,0 +1,133 @@
+get_images_rcne.py:
+  working_directory: data/RCNE
+  output_folder: images
+  image_infos: objets_cadastre/photos360_subset.gpkg
+  overwrite: False
+  
+
+get_stat_images.py:
+  working_directory: .
+  input_folder: /mnt/s3/proj-streetview/02_data/01_initial/01_images/Innovitas_2024/
+
+
+prepare_coco_data.py:
+  working_directory: .
+  original_COCO_files:
+    RCNE: data/RCNE/Object_Detect_GT/ne_COCO.json
+    # SZH: data/SZH/zh_COCO_13033.json
+  validated_COCO_files:
+    RCNE: data/RCNE/Object_Detect_GT/valid_ne_250725.json
+    # SZH: data/SZH/valid_zh_250731.json
+  clipping_params:
+    RCNE:
+      width: 8000
+      height: 4000
+      overlap_x: 44
+      overlap_y: 8
+      padding_y: 736
+    SZH:
+      lb4:
+        width: 2048
+        height: 2048
+        overlap_x: 0
+        overlap_y: 0
+        padding_y: 0
+      else:
+        width: 4016
+        height: 4016
+        overlap_x: 74
+        overlap_y: 74
+        padding_y: 0
+  ratio_wo_annotations: 0.33
+  seed: 42
+  overwrite_images: False
+  tasks:
+    test_only: False
+    make_other_dataset: True
+    yolo:
+      prepare_data: True
+      subfolder: outputs/<COCO_FOR_YOLO_FOLDER>
+
+
+coco_to_yolo.py:
+  working_directory: outputs
+  input_folder: <COCO_FOR_YOLO_FOLDER>
+  output_folder: /datasets/<YOLO_DATASET>
+
+
+redistribute_images.py:
+  working_directory: outputs/<COCO_FOR_YOLO_FOLDER>
+  image_folder: .
+  output_folder: /datasets/<YOLO_DATASET>/images
+  COCO_files:
+    trn: trn.json
+    val: val.json
+    tst: tst.json
+    oth: oth.json
+  overwrite: False
+
+### Training-only ### ------------------------------------------------
+
+tune_yolo_model.py:
+  working_directory: outputs
+  project: yolo/tune
+  model: yolo11m-seg.pt
+  params:
+    # https://docs.ultralytics.com/usage/cfg/#train-settings
+    epochs: 100
+    patience: 50    # Number of epochs to wait without improvement in validation metrics before early stopping (default 100)
+  
+
+tune_yolo_w_ray.py:
+  output_folder: /mnt/data-volume-02/gsalamin/GitHub/proj-streetview/outputs/ray_tune # relative path not supported
+
+
+plot_best.py:
+  working_directory: outputs
+  ray_results_dir: ray_tune
+
+
+train_yolo.py:
+  working_directory: outputs
+  project: yolo/train
+  name: <MODEL_FOLDER>
+  # best_parameters_path: /mnt/s3/proj-streetview/02_data/02_processed/yolo_calibration/tune250830/train_yolo_e6682_00007_7_epochs=75,lr0=0.0030,model=yolo11m-seg,optimizer=SGD_2025-08-30_18-12-33/params.json
+  resume_training: False
+
+
+validate_yolo.py:
+  working_directory: outputs
+  project: yolo/train/<MODEL_FOLDER>
+  model: yolo/train/<MODEL_FOLDER>/weights/best.pt
+
+### ------------------------------------------------
+
+infer_with_yolo.py:
+  working_directory: outputs
+  project: yolo/infer_post_trn/<MODEL_FOLDER>
+  model: yolo/train/<MODEL_FOLDER>/weights/best.pt
+  dataset_images_folder:
+    trn: /datasets/<YOLO_DATASET>/images/trn
+    val: /datasets/<YOLO_DATASET>/images/val
+    tst: /datasets/<YOLO_DATASET>/images/tst
+    oth: /datasets/<YOLO_DATASET>/images/oth
+  coco_info_folder: <COCO_FOR_YOLO_FOLDER>
+
+### Training-only ### ------------------------------------------------
+
+assess_detections.py:
+  working_directory: outputs/yolo/
+  output_folder: infer_post_trn/<MODEL_FOLDER>/eval
+  datasets:
+    path_ground_truth: ../<COCO_FOR_YOLO_FOLDER>
+    ground_truth_files:
+      trn: trn.json
+      val: val.json
+      tst: tst.json
+    path_detections: infer_post_trn/<MODEL_FOLDER>
+    detections_files:
+      trn: YOLO_trn_detections.json
+      val: YOLO_val_detections.json
+      tst: YOLO_tst_detections.json
+  # confidence_threshold: 0.35
+  # limit_aoi: RCNE

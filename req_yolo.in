@@ -1,0 +1,15 @@
+# general
+geopandas
+jupyter
+jupyterlab
+loguru
+plotly
+scikit-learn
+scikit-image
+
+# YOLO
+ray
+ray[tune]
+tensorboard
+ultralytics
+wandb
