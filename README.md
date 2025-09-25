@@ -160,14 +160,14 @@ The optimization of the hyperparameters is done with the `tune_yolo_w_ray.py` sc
 The postprocessing consists in reassembling panoramic images from tiles and filtering detections on the score. The following command line is used:
 
 ```
-python scripts/deep-learning/transform_detections.py config/config_trn_pano.yaml
+python scripts/deep-learning/transform_detections.py config/config_transfo_pano.yaml
 ```
 
 The results can be assessed once the annotations on adjacent tiles are merged for each panoramic image.
 
 ```
-python scripts/deep-learning/clipped_labels_to_panoramic.py config/config_trn_pano.yaml
-python scripts/deep-learning/assess_results.py config/config_trn_pano.yaml
+python scripts/deep-learning/clipped_labels_to_panoramic.py config/config_transfo_pano.yaml
+python scripts/deep-learning/assess_results.py config/config_transfo_pano.yaml
 ```
 
 The impact of this post-processing on the metrics is negligible.
