@@ -1,11 +1,11 @@
 cadaster_control.py:
   working_directory: outputs
-  output_dir: cadaster_control\best_recall
+  output_dir: cadaster_control
   aoi_files:
     RCNE: ../data/RCNE/objets_cadastre/photos360_subset.gpkg
   detection_files:
-    RCNE: reprojected/RCNE/triangulation_peeling_f1.gpkg
+    RCNE: geolocalized/RCNE/triangulation_peeling_15m.gpkg
   cadaster_manhole_files:
     RCNE: ../data/RCNE/objets_cadastre/chambres.gpkg
-  iou_threshold: 0.5
+  iou_threshold: 0.25
   save_separate_datasets: True

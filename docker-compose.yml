@@ -2,9 +2,9 @@ services:
   streetview:
     build: .
     volumes:
-      - ./data:/dock/data
-      - ./config:/dock/config
-      - ./outputs:/dock/outputs
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./outputs:/app/outputs
     deploy:
       resources:
         reservations:
@@ -13,3 +13,4 @@ services:
               count: 1
               capabilities: [gpu]
     command: /bin/bash
+    shm_size: 4g

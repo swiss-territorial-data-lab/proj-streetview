@@ -34,6 +34,9 @@ def train_yolo(config):
     local_rank = int(os.environ.get("CUDA_VISIBLE_DEVICES", "0"))
     device = f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu"
 
+    if not os.path.exists(YOLO_TRAINING_PARAMS['data']):
+        YOLO_TRAINING_PARAMS['data'] = os.path.join('/app', 'config', YOLO_TRAINING_PARAMS['data'].split('config/')[-1])
+
     #  Lance l’entraînement avec les hyperparamètres fournis
     _ = model.train(
         device=device,

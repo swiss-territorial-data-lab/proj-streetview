@@ -55,6 +55,9 @@ search_space = {
     "hsv_v": (0.0, 0.9),
 }
 
+if not os.path.exists(YOLO_TRAINING_PARAMS['data']):
+    YOLO_TRAINING_PARAMS['data'] = os.path.join('/app', 'config', YOLO_TRAINING_PARAMS['data'].split('config/')[-1])
+
 model.tune(
     iterations=50,
     space=search_space,
