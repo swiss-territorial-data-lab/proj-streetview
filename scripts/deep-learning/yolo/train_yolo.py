@@ -60,7 +60,7 @@ if 'batch' in best_parameters.keys():
 if 'patience' in best_parameters.keys():
     YOLO_TRAINING_PARAMS.pop('patience')
 if not os.path.exists(YOLO_TRAINING_PARAMS['data']):
-    YOLO_TRAINING_PARAMS['data'] = os.path.join('/dock', 'config', YOLO_TRAINING_PARAMS['data'].split('config/')[-1])
+    YOLO_TRAINING_PARAMS['data'] = os.path.join('/app', 'config', YOLO_TRAINING_PARAMS['data'].split('config/')[-1])
 
 model.train(
     project=PROJECT,

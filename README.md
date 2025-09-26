@@ -32,9 +32,6 @@ Please note that detectron2 can only be run on Linux-based systems or macOS.
 The process with YOLOv11 was run on python 3.10 and the libraries can be installed from `req_yolo.txt`.<br>
 The process with detectron2 was run on python 3.8 and the libraries can be installed from `requirements.txt`.
 
-> [!NOTE]  
-> The results presented in the official documentation were obtained with a batch size of 25 images for the YOLO training. A batch size of 10 images is set in the default parameters of this repo, because the use of docker 
-
 **Without docker**
 
 To use YOLOv11, python 3.10 is expected. To use detectron2, python 3.8 is required.
@@ -63,7 +60,10 @@ The following data are expected for the part about _cadaster control_:
 * Area of interest: georeferenced vector file with either the AOI as polygons or the position of the camera at each image;
 * Manholes: georeferenced vector file with the manholes from the pipe cadaster as points or as polygons.
 
-Example data can be found in the `data/RCNE` folder to test the workflow. The images need to be downloaded with the `get_images_rcne.py` script.
+> [!NOTE]  
+> Example data can be found in the `data/RCNE` folder to test the workflow. These datasets were produced for this project or provided by the _Système d'information du territoire neuchâtelois (SITN)_ (&copy; 2025 SITN - [https://www.sitn.ch](https://www.sitn.ch)). The provided data has no legal value and should not be used for any other purpose.
+
+The images for the example need to be downloaded with the `get_images_rcne.py` script.
 
 ```
 python scripts/utils/get_images_rcne.py config/config_yolo.yaml
